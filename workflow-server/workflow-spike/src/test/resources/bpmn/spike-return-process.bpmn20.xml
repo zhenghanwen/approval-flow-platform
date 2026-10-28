@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeReturnProcess" name="S1退回测试（申请人→部门MI→财务MI→结束；实例数走独立变量）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f0" sourceRef="start" targetRef="apply"/>
+        <userTask id="apply" name="填写申请" flowable:assignee="applicant"/>
+        <sequenceFlow id="f1" sourceRef="apply" targetRef="deptApproval"/>
+        <userTask id="deptApproval" name="部门审批">
+            <multiInstanceLoopCharacteristics isSequential="false">
+                <loopCardinality>${wf_n_deptApproval}</loopCardinality>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="f2" sourceRef="deptApproval" targetRef="financeApproval"/>
+        <userTask id="financeApproval" name="财务审批">
+            <multiInstanceLoopCharacteristics isSequential="false">
+                <loopCardinality>${wf_n_financeApproval}</loopCardinality>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="f3" sourceRef="financeApproval" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>
