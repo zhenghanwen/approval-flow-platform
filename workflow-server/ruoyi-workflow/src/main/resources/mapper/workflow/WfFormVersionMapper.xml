@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfFormVersionMapper">
+
+    <resultMap type="WfFormVersion" id="WfFormVersionResult">
+        <id     property="id"            column="id"/>
+        <result property="formId"        column="form_id"/>
+        <result property="versionNo"     column="version_no"/>
+        <result property="mongoSchemaId" column="mongo_schema_id"/>
+        <result property="schemaHash"    column="schema_hash"/>
+        <result property="status"        column="status"/>
+        <result property="publishedAt"   column="published_at"/>
+        <result property="publishedBy"   column="published_by"/>
+        <result property="createdAt"     column="created_at"/>
+    </resultMap>
+
+    <sql id="selectWfFormVersionVo">
+        select id, form_id, version_no, mongo_schema_id, schema_hash, status, published_at, published_by, created_at
+        from wf_form_version
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfFormVersionResult">
+        <include refid="selectWfFormVersionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByFormId" parameterType="String" resultMap="WfFormVersionResult">
+        <include refid="selectWfFormVersionVo"/>
+        where form_id = #{formId}
+        order by version_no desc
+    </select>
+
+    <select id="selectByFormAndVersion" resultMap="WfFormVersionResult">
+        <include refid="selectWfFormVersionVo"/>
+        where form_id = #{formId} and version_no = #{versionNo}
+    </select>
+
+    <select id="selectMaxPublishedVersion" parameterType="String" resultType="Integer">
+        select max(version_no) from wf_form_version
+        where form_id = #{formId} and status = 'PUBLISHED'
+    </select>
+
+    <insert id="insert" parameterType="WfFormVersion">
+        insert into wf_form_version
+            (id, form_id, version_no, mongo_schema_id, schema_hash, status, published_at, published_by)
+        values
+            (#{id}, #{formId}, #{versionNo}, #{mongoSchemaId}, #{schemaHash}, #{status}, #{publishedAt}, #{publishedBy})
+    </insert>
+
+    <update id="update" parameterType="WfFormVersion">
+        update wf_form_version
+        <set>
+            <if test="mongoSchemaId != null">mongo_schema_id = #{mongoSchemaId},</if>
+            <if test="schemaHash != null">schema_hash = #{schemaHash},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="publishedAt != null">published_at = #{publishedAt},</if>
+            <if test="publishedBy != null">published_by = #{publishedBy},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

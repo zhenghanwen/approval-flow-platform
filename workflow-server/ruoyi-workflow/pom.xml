@@ -26,10 +26,33 @@
             <version>${flowable.version}</version>
         </dependency>
 
+        <!-- Flyway：wf_*/approval_* 表版本化迁移（D8：ACT_* 引擎自建、sys_* 走基线SQL，只托管新业务表） -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!-- MongoDB：表单版本快照 form_schema_versions / 表单数据 approval_form_data -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
         <!-- 若依通用工具（常量/异常体系） -->
         <dependency>
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-common</artifactId>
+        </dependency>
+
+        <!-- 测试（M2 起集成测试：表单发布→填报→Mongo+MySQL 双写） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

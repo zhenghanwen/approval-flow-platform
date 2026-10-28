@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfApprovalInstanceMapper">
+
+    <resultMap type="WfApprovalInstance" id="WfApprovalInstanceResult">
+        <id     property="id"                     column="id"/>
+        <result property="approvalNo"             column="approval_no"/>
+        <result property="approvalDefinitionId"   column="approval_definition_id"/>
+        <result property="formVersionId"          column="form_version_id"/>
+        <result property="workflowVersionId"      column="workflow_version_id"/>
+        <result property="processInstanceId"      column="process_instance_id"/>
+        <result property="processDefinitionId"    column="process_definition_id"/>
+        <result property="applicantUserId"        column="applicant_user_id"/>
+        <result property="applicantNameSnapshot"  column="applicant_name_snapshot"/>
+        <result property="applicantDeptId"        column="applicant_dept_id"/>
+        <result property="applicantDeptSnapshot"  column="applicant_dept_snapshot"/>
+        <result property="title"                  column="title"/>
+        <result property="formDataId"             column="form_data_id"/>
+        <result property="businessStatus"         column="business_status"/>
+        <result property="currentNodeKey"         column="current_node_key"/>
+        <result property="currentNodeName"        column="current_node_name"/>
+        <result property="submittedAt"            column="submitted_at"/>
+        <result property="completedAt"            column="completed_at"/>
+        <result property="version"                column="version"/>
+        <result property="createdAt"              column="created_at"/>
+        <result property="updatedAt"              column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectWfApprovalInstanceVo">
+        select id, approval_no, approval_definition_id, form_version_id, workflow_version_id,
+               process_instance_id, process_definition_id, applicant_user_id, applicant_name_snapshot,
+               applicant_dept_id, applicant_dept_snapshot, title, form_data_id, business_status,
+               current_node_key, current_node_name, submitted_at, completed_at, version, created_at, updated_at
+        from wf_approval_instance
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByApprovalNo" parameterType="String" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        where approval_no = #{approvalNo}
+    </select>
+
+    <select id="selectByProcessInstanceId" parameterType="String" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        where process_instance_id = #{processInstanceId}
+    </select>
+
+    <select id="selectList" parameterType="WfApprovalInstance" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        <where>
+            <if test="approvalNo != null and approvalNo != ''">and approval_no = #{approvalNo}</if>
+            <if test="approvalDefinitionId != null and approvalDefinitionId != ''">and approval_definition_id = #{approvalDefinitionId}</if>
+            <if test="applicantUserId != null and applicantUserId != ''">and applicant_user_id = #{applicantUserId}</if>
+            <if test="businessStatus != null and businessStatus != ''">and business_status = #{businessStatus}</if>
+            <if test="title != null and title != ''">and title like concat('%', #{title}, '%')</if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfApprovalInstance">
+        insert into wf_approval_instance
+            (id, approval_no, approval_definition_id, form_version_id, workflow_version_id,
+             process_instance_id, process_definition_id, applicant_user_id, applicant_name_snapshot,
+             applicant_dept_id, applicant_dept_snapshot, title, form_data_id, business_status,
+             current_node_key, current_node_name, submitted_at, completed_at, version)
+        values
+            (#{id}, #{approvalNo}, #{approvalDefinitionId}, #{formVersionId}, #{workflowVersionId},
+             #{processInstanceId}, #{processDefinitionId}, #{applicantUserId}, #{applicantNameSnapshot},
+             #{applicantDeptId}, #{applicantDeptSnapshot}, #{title}, #{formDataId}, #{businessStatus},
+             #{currentNodeKey}, #{currentNodeName}, #{submittedAt}, #{completedAt}, #{version})
+    </insert>
+
+    <update id="update" parameterType="WfApprovalInstance">
+        update wf_approval_instance
+        <set>
+            <if test="approvalDefinitionId != null">approval_definition_id = #{approvalDefinitionId},</if>
+            <if test="formVersionId != null">form_version_id = #{formVersionId},</if>
+            <if test="workflowVersionId != null">workflow_version_id = #{workflowVersionId},</if>
+            <if test="processInstanceId != null">process_instance_id = #{processInstanceId},</if>
+            <if test="processDefinitionId != null">process_definition_id = #{processDefinitionId},</if>
+            <if test="formDataId != null">form_data_id = #{formDataId},</if>
+            <if test="businessStatus != null">business_status = #{businessStatus},</if>
+            <if test="currentNodeKey != null">current_node_key = #{currentNodeKey},</if>
+            <if test="currentNodeName != null">current_node_name = #{currentNodeName},</if>
+            <if test="submittedAt != null">submitted_at = #{submittedAt},</if>
+            <if test="completedAt != null">completed_at = #{completedAt},</if>
+            version = version + 1
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfFormDefinitionMapper">
+
+    <resultMap type="WfFormDefinition" id="WfFormDefinitionResult">
+        <id     property="id"            column="id"/>
+        <result property="formCode"      column="form_code"/>
+        <result property="formName"      column="form_name"/>
+        <result property="status"        column="status"/>
+        <result property="currentVersion" column="current_version"/>
+        <result property="createdBy"     column="created_by"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectWfFormDefinitionVo">
+        select id, form_code, form_name, status, current_version, created_by, created_at, updated_at
+        from wf_form_definition
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfFormDefinitionResult">
+        <include refid="selectWfFormDefinitionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByCode" parameterType="String" resultMap="WfFormDefinitionResult">
+        <include refid="selectWfFormDefinitionVo"/>
+        where form_code = #{formCode}
+    </select>
+
+    <select id="selectList" parameterType="WfFormDefinition" resultMap="WfFormDefinitionResult">
+        <include refid="selectWfFormDefinitionVo"/>
+        <where>
+            <if test="formCode != null and formCode != ''">and form_code like concat('%', #{formCode}, '%')</if>
+            <if test="formName != null and formName != ''">and form_name like concat('%', #{formName}, '%')</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfFormDefinition">
+        insert into wf_form_definition
+            (id, form_code, form_name, status, current_version, created_by)
+        values
+            (#{id}, #{formCode}, #{formName}, #{status}, #{currentVersion}, #{createdBy})
+    </insert>
+
+    <update id="update" parameterType="WfFormDefinition">
+        update wf_form_definition
+        <set>
+            <if test="formName != null">form_name = #{formName},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="currentVersion != null">current_version = #{currentVersion},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

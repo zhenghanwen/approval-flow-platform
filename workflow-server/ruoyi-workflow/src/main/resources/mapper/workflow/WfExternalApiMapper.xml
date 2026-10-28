@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfExternalApiMapper">
+
+    <resultMap type="WfExternalApi" id="WfExternalApiResult">
+        <id     property="id"            column="id"/>
+        <result property="apiCode"       column="api_code"/>
+        <result property="apiName"       column="api_name"/>
+        <result property="baseUrl"       column="base_url"/>
+        <result property="path"          column="path"/>
+        <result property="httpMethod"    column="http_method"/>
+        <result property="authType"      column="auth_type"/>
+        <result property="credentialRef" column="credential_ref"/>
+        <result property="timeoutMs"     column="timeout_ms"/>
+        <result property="configJson"    column="config_json"/>
+        <result property="allowedHostsJson" column="allowed_hosts_json"/>
+        <result property="status"        column="status"/>
+        <result property="createdBy"     column="created_by"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectWfExternalApiVo">
+        select id, api_code, api_name, base_url, path, http_method, auth_type, credential_ref,
+               timeout_ms, config_json, allowed_hosts_json, status, created_by, created_at, updated_at
+        from wf_external_api
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfExternalApiResult">
+        <include refid="selectWfExternalApiVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByCode" parameterType="String" resultMap="WfExternalApiResult">
+        <include refid="selectWfExternalApiVo"/>
+        where api_code = #{apiCode}
+    </select>
+
+    <select id="selectList" parameterType="WfExternalApi" resultMap="WfExternalApiResult">
+        <include refid="selectWfExternalApiVo"/>
+        <where>
+            <if test="apiCode != null and apiCode != ''">and api_code like concat('%', #{apiCode}, '%')</if>
+            <if test="apiName != null and apiName != ''">and api_name like concat('%', #{apiName}, '%')</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfExternalApi">
+        insert into wf_external_api
+            (id, api_code, api_name, base_url, path, http_method, auth_type, credential_ref,
+             timeout_ms, config_json, allowed_hosts_json, status, created_by)
+        values
+            (#{id}, #{apiCode}, #{apiName}, #{baseUrl}, #{path}, #{httpMethod}, #{authType}, #{credentialRef},
+             #{timeoutMs}, #{configJson}, #{allowedHostsJson}, #{status}, #{createdBy})
+    </insert>
+
+    <update id="update" parameterType="WfExternalApi">
+        update wf_external_api
+        <set>
+            <if test="apiName != null">api_name = #{apiName},</if>
+            <if test="baseUrl != null">base_url = #{baseUrl},</if>
+            <if test="path != null">path = #{path},</if>
+            <if test="httpMethod != null">http_method = #{httpMethod},</if>
+            <if test="authType != null">auth_type = #{authType},</if>
+            <if test="credentialRef != null">credential_ref = #{credentialRef},</if>
+            <if test="timeoutMs != null">timeout_ms = #{timeoutMs},</if>
+            <if test="configJson != null">config_json = #{configJson},</if>
+            <if test="allowedHostsJson != null">allowed_hosts_json = #{allowedHostsJson},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

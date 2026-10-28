@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfExternalApiLogMapper">
+
+    <resultMap type="WfExternalApiLog" id="WfExternalApiLogResult">
+        <id     property="id"                column="id"/>
+        <result property="apiId"             column="api_id"/>
+        <result property="approvalInstanceId" column="approval_instance_id"/>
+        <result property="operatorUserId"    column="operator_user_id"/>
+        <result property="requestSummary"    column="request_summary"/>
+        <result property="responseStatus"    column="response_status"/>
+        <result property="durationMs"        column="duration_ms"/>
+        <result property="success"           column="success"/>
+        <result property="errorCode"         column="error_code"/>
+        <result property="errorMessage"      column="error_message"/>
+        <result property="createdAt"         column="created_at"/>
+    </resultMap>
+
+    <sql id="selectWfExternalApiLogVo">
+        select id, api_id, approval_instance_id, operator_user_id, request_summary,
+               response_status, duration_ms, success, error_code, error_message, created_at
+        from wf_external_api_log
+    </sql>
+
+    <select id="selectByApiId" parameterType="String" resultMap="WfExternalApiLogResult">
+        <include refid="selectWfExternalApiLogVo"/>
+        where api_id = #{apiId}
+        order by created_at desc
+    </select>
+
+    <select id="selectByApprovalInstance" parameterType="String" resultMap="WfExternalApiLogResult">
+        <include refid="selectWfExternalApiLogVo"/>
+        where approval_instance_id = #{approvalInstanceId}
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfExternalApiLog">
+        insert into wf_external_api_log
+            (id, api_id, approval_instance_id, operator_user_id, request_summary,
+             response_status, duration_ms, success, error_code, error_message)
+        values
+            (#{id}, #{apiId}, #{approvalInstanceId}, #{operatorUserId}, #{requestSummary},
+             #{responseStatus}, #{durationMs}, #{success}, #{errorCode}, #{errorMessage})
+    </insert>
+
+</mapper>

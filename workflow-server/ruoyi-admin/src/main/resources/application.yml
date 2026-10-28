@@ -88,6 +88,22 @@ spring:
           max-active: 8
           # #连接池最大阻塞等待时间（使用负值表示没有限制）
           max-wait: -1ms
+    # MongoDB（M2 表单版本快照 form_schema_versions / 表单数据 approval_form_data）
+    # 凭证走环境变量占位符，本地值在 IDE 运行配置 / .env 注入，不进 git
+    mongodb:
+      uri: ${WF_MONGO_URI:mongodb://127.0.0.1:27017/workflow}
+      # uri 未带库名路径时的兜底库（uri 含库名则 uri 优先）
+      database: workflow
+  # Flyway（wf_*/approval_* 表版本化迁移；数据源绑定 master 见 WorkflowFlywayConfig）
+  flyway:
+    # 首次在已存在 sys_*/ACT_* 表的基础库上执行：无 history 表时以现状为基线
+    baseline-on-migrate: true
+    # 基线版本必须低于首个迁移脚本版本号，否则 V1 会被基线覆盖跳过
+    baseline-version: 0
+    # 只执行本项目的迁移脚本，不校验/管理其它表
+    locations: classpath:db/migration
+    # 迁移失败禁止启动（防止半状态库跑起来）
+    fail-on-error: true
 
 # Flowable 7.1 引擎（行为与 M0 Spike 保持一致；数据源绑定 master 见 ruoyi-workflow 的 WorkflowEngineConfig）
 flowable:
