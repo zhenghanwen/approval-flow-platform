@@ -15,9 +15,10 @@ import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.workflow.domain.WfApprovalInstance;
 import com.ruoyi.workflow.domain.WfApprovalTask;
 import com.ruoyi.workflow.service.ApprovalTaskService;
+import com.ruoyi.workflow.service.ApprovalTaskService.ReturnTargetVo;
 
 /**
- * 审批任务（PRD 14.2/14.3：同意 / 驳回 + 待办 / 已办）。
+ * 审批任务（PRD 14.2/14.3：同意 / 驳回 + 待办 / 已办；PRD 11.1/11.2/11.3：转交 / 加签 / 退回）。
  */
 @RestController
 @RequestMapping("/workflow/tasks")
@@ -34,6 +35,34 @@ public class WfTaskController extends BaseController {
      */
     public static class ActionRequest {
         public String comment;
+        public String idempotencyKey;
+    }
+
+    /**
+     * 转交请求体：{ toUserId, reason, idempotencyKey }
+     */
+    public static class TransferRequest {
+        public String toUserId;
+        public String reason;
+        public String idempotencyKey;
+    }
+
+    /**
+     * 加签请求体：{ signType(FIRST/AFTER), addUsers, reason, idempotencyKey }
+     */
+    public static class AddSignRequest {
+        public String signType;
+        public List<String> addUsers;
+        public String reason;
+        public String idempotencyKey;
+    }
+
+    /**
+     * 退回请求体：{ targetNodeKey, reason, idempotencyKey }
+     */
+    public static class ReturnRequest {
+        public String targetNodeKey;
+        public String reason;
         public String idempotencyKey;
     }
 
@@ -73,5 +102,46 @@ public class WfTaskController extends BaseController {
         WfApprovalInstance instance = approvalTaskService.reject(
             taskId, request.comment, SecurityUtils.getUserId().toString(), request.idempotencyKey);
         return success(instance);
+    }
+
+    /**
+     * 转交审批（PRD 11.1）：把当前任务的办理责任交给另一个用户。
+     */
+    @PostMapping("/{taskId}/transfer")
+    public AjaxResult transfer(@PathVariable String taskId, @RequestBody TransferRequest request) {
+        WfApprovalInstance instance = approvalTaskService.transfer(
+            taskId, request.toUserId, request.reason, SecurityUtils.getUserId().toString(), request.idempotencyKey);
+        return success(instance);
+    }
+
+    /**
+     * 加签审批（PRD 11.2）：对活跃的并行 ALL 多实例节点追加审批人实例。
+     */
+    @PostMapping("/{taskId}/add-sign")
+    public AjaxResult addSign(@PathVariable String taskId, @RequestBody AddSignRequest request) {
+        WfApprovalInstance instance = approvalTaskService.addSign(
+            taskId, request.signType, request.addUsers, request.reason,
+            SecurityUtils.getUserId().toString(), request.idempotencyKey);
+        return success(instance);
+    }
+
+    /**
+     * 退回任意节点（PRD 11.3）：白名单校验 + 受控状态变更；多实例目标走方式二。
+     */
+    @PostMapping("/{taskId}/return")
+    public AjaxResult returnTask(@PathVariable String taskId, @RequestBody ReturnRequest request) {
+        WfApprovalInstance instance = approvalTaskService.returnTask(
+            taskId, request.targetNodeKey, request.reason,
+            SecurityUtils.getUserId().toString(), request.idempotencyKey);
+        return success(instance);
+    }
+
+    /**
+     * 退回目标白名单（PRD 11.3 校验清单）：返回任务可退回的节点列表。
+     */
+    @GetMapping("/{taskId}/return-targets")
+    public AjaxResult returnTargets(@PathVariable String taskId) {
+        List<ReturnTargetVo> targets = approvalTaskService.returnTargets(taskId);
+        return success(targets);
     }
 }

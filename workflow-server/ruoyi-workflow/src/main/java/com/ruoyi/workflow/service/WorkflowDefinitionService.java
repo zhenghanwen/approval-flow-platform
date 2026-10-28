@@ -95,8 +95,8 @@ public class WorkflowDefinitionService {
     public WfWorkflowVersion publish(String workflowId, String bpmnXml, String configJson, String operator) {
         WfWorkflowDefinition definition = requireDefinition(workflowId);
 
-        // 1. 校验 + 规一化（门禁）
-        String normalizedXml = validationService.validateAndNormalize(bpmnXml);
+        // 1. 校验 + 规一化（门禁，completionRule 从节点配置读取）
+        String normalizedXml = validationService.validateAndNormalize(bpmnXml, configJson);
 
         // 2. 部署至 Flowable
         Deployment deployment = repositoryService.createDeployment()

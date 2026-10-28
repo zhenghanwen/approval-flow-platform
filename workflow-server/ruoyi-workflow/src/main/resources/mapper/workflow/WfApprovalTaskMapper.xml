@@ -81,4 +81,12 @@
         where id = #{id}
     </update>
 
+    <update id="updateStatusByProcessInstance" parameterType="map">
+        update wf_approval_task
+        set task_status = #{taskStatus},
+            completed_at = #{completedAt}
+        where process_instance_id = #{processInstanceId}
+          and task_status in ('CREATED', 'PENDING')
+    </update>
+
 </mapper>

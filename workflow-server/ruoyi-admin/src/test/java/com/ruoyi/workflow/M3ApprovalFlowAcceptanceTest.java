@@ -100,43 +100,67 @@ class M3ApprovalFlowAcceptanceTest {
     @Test
     @Order(0)
     void cleanupPreviousRun() {
-        // 1. Flowable 部署级联删除（含运行实例与历史）
+        // 1. Flowable 部署级联删除（含运行实例与历史）：M3 自身 + M4 跨轮遗留（M4 会把审批单留在 apply 节点）
         for (Deployment d : repositoryService.createDeploymentQuery().list()) {
-            if ("费用报销流程".equals(d.getName())) {
+            if ("费用报销流程".equals(d.getName())
+                || "M4高级审批流程".equals(d.getName()) || "或签比例流程".equals(d.getName())) {
                 repositoryService.deleteDeployment(d.getId(), true);
             }
         }
-        // 2. MySQL 测试数据（按唯一编码定位，先删子表）
-        jdbcTemplate.update("""
-            delete from wf_approval_operation where approval_instance_id in (
-                select id from wf_approval_instance where workflow_version_id in (
+        // 2. MySQL 测试数据（按唯一编码定位，先删子表）：M3 expense_flow + M4 m4_* 跨轮遗留
+        for (String flowCode : List.of("expense_flow", "m4_expense_flow", "m4_or_percent_flow")) {
+            jdbcTemplate.update("""
+                delete from wf_task_transfer where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_task_add_sign where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_task_return where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_approval_operation where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_approval_action where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_approval_task where approval_instance_id in (
+                    select id from wf_approval_instance where workflow_version_id in (
+                        select id from wf_workflow_version where workflow_id in (
+                            select id from wf_workflow_definition where workflow_code = '%s')))
+                """.formatted(flowCode));
+            jdbcTemplate.update("""
+                delete from wf_approval_instance where workflow_version_id in (
                     select id from wf_workflow_version where workflow_id in (
-                        select id from wf_workflow_definition where workflow_code = 'expense_flow')))
-            """);
-        jdbcTemplate.update("""
-            delete from wf_approval_action where approval_instance_id in (
-                select id from wf_approval_instance where workflow_version_id in (
-                    select id from wf_workflow_version where workflow_id in (
-                        select id from wf_workflow_definition where workflow_code = 'expense_flow')))
-            """);
-        jdbcTemplate.update("""
-            delete from wf_approval_task where approval_instance_id in (
-                select id from wf_approval_instance where workflow_version_id in (
-                    select id from wf_workflow_version where workflow_id in (
-                        select id from wf_workflow_definition where workflow_code = 'expense_flow')))
-            """);
-        jdbcTemplate.update("""
-            delete from wf_approval_instance where workflow_version_id in (
-                select id from wf_workflow_version where workflow_id in (
-                    select id from wf_workflow_definition where workflow_code = 'expense_flow'))
-            """);
-        jdbcTemplate.update("delete from wf_workflow_version where workflow_id in "
-            + "(select id from wf_workflow_definition where workflow_code = 'expense_flow')");
-        jdbcTemplate.update("delete from wf_workflow_definition where workflow_code = 'expense_flow'");
-        jdbcTemplate.update("delete from wf_approval_definition where approval_code = 'expense_approval'");
+                        select id from wf_workflow_definition where workflow_code = '%s'))
+                """.formatted(flowCode));
+            jdbcTemplate.update("delete from wf_workflow_version where workflow_id in "
+                + "(select id from wf_workflow_definition where workflow_code = '%s')".formatted(flowCode));
+            jdbcTemplate.update("delete from wf_workflow_definition where workflow_code = '%s'".formatted(flowCode));
+        }
+        jdbcTemplate.update("delete from wf_approval_definition where approval_code in "
+            + "('expense_approval', 'm4_expense_approval', 'm4_or_percent_approval')");
         jdbcTemplate.update("delete from wf_form_version where form_id in "
-            + "(select id from wf_form_definition where form_code = 'expense_form')");
-        jdbcTemplate.update("delete from wf_form_definition where form_code = 'expense_form'");
+            + "(select id from wf_form_definition where form_code in "
+            + "('expense_form', 'm4_expense_form', 'm4_or_percent_form'))");
+        jdbcTemplate.update("delete from wf_form_definition where form_code in "
+            + "('expense_form', 'm4_expense_form', 'm4_or_percent_form')");
     }
 
     /** 审批流程 BPMN：填写申请 → 部门审批 → 结束（普通 UserTask，规一化门禁统一改写为多实例）。 */

@@ -46,6 +46,14 @@ public class WfApprovalController extends BaseController {
     }
 
     /**
+     * 撤回/取消请求体：{ reason, idempotencyKey }
+     */
+    public static class TerminateRequest {
+        public String reason;
+        public String idempotencyKey;
+    }
+
+    /**
      * 提交审批（PRD 10.1 事务链）。
      */
     @PostMapping
@@ -84,5 +92,25 @@ public class WfApprovalController extends BaseController {
         List<WfApprovalInstance> instances = approvalTaskService.myInstances(
             SecurityUtils.getUserId().toString());
         return success(instances);
+    }
+
+    /**
+     * 撤回审批（PRD 11.4）：仅申请人可撤回本人 PENDING 的审批。
+     */
+    @PostMapping("/{id}/withdraw")
+    public AjaxResult withdraw(@PathVariable String id, @RequestBody TerminateRequest request) {
+        WfApprovalInstance instance = approvalTaskService.withdraw(
+            id, request.reason, SecurityUtils.getUserId().toString(), request.idempotencyKey);
+        return success(instance);
+    }
+
+    /**
+     * 取消审批（PRD 11.5）：管理员取消业务流程。
+     */
+    @PostMapping("/{id}/cancel")
+    public AjaxResult cancel(@PathVariable String id, @RequestBody TerminateRequest request) {
+        WfApprovalInstance instance = approvalTaskService.cancel(
+            id, request.reason, SecurityUtils.getUserId().toString(), request.idempotencyKey);
+        return success(instance);
     }
 }

@@ -4,6 +4,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.stream.XMLInputFactory;
@@ -20,6 +21,7 @@ import org.flowable.bpmn.model.StartEvent;
 import org.flowable.bpmn.model.UserTask;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.exception.ServiceException;
 
 /**
@@ -50,20 +52,73 @@ public class BpmnValidationService {
     /** 最大嵌套深度（网关串联层级，防恶意深链）。 */
     private static final int MAX_DEPTH = 10;
 
+    /** 会签/或签/比例 completionRule 取值。 */
+    public static final String RULE_ALL = "ALL";
+    public static final String RULE_OR = "OR";
+    public static final String RULE_PERCENT = "PERCENT";
+
+    private final ObjectMapper objectMapper;
+
+    public BpmnValidationService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
     /**
-     * 门禁入口：校验 + 规一化 + 序列化。
+     * 门禁入口：校验 + 规一化 + 序列化（无节点配置，completionRule 默认 ALL）。
      *
      * @param bpmnXml 前端提交的 BPMN XML
      * @return 规一化后的 BPMN XML（UTF-8）
      */
     public String validateAndNormalize(String bpmnXml) {
+        return validateAndNormalize(bpmnXml, null);
+    }
+
+    /**
+     * 门禁入口：校验 + 规一化 + 序列化。
+     *
+     * @param bpmnXml    前端提交的 BPMN XML
+     * @param configJson 节点配置（含 completionRule：ALL/OR/PERCENT），可为空
+     * @return 规一化后的 BPMN XML（UTF-8）
+     */
+    public String validateAndNormalize(String bpmnXml, String configJson) {
         if (bpmnXml == null || bpmnXml.isBlank()) {
             throw new ServiceException("BPMN XML 不能为空");
         }
         BpmnModel model = parse(bpmnXml);
         validate(model);
-        normalize(model);
+        normalize(model, parseNodeConfigs(configJson));
         return serialize(model);
+    }
+
+    /**
+     * 解析 configJson 的节点配置：{ "nodes": { "<nodeId>": { ... } } }。
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Map<String, Object>> parseNodeConfigs(String configJson) {
+        Map<String, Map<String, Object>> nodeConfigs = new java.util.HashMap<>();
+        if (configJson == null || configJson.isBlank()) {
+            return nodeConfigs;
+        }
+        try {
+            Object root = objectMapper.readValue(configJson, Object.class);
+            if (root instanceof Map<?, ?> rootMap && rootMap.get("nodes") instanceof Map<?, ?> nodes) {
+                for (Map.Entry<?, ?> entry : nodes.entrySet()) {
+                    if (entry.getKey() instanceof String nodeId
+                        && entry.getValue() instanceof Map<?, ?> cfg) {
+                        Map<String, Object> normalized = new java.util.HashMap<>();
+                        for (Map.Entry<?, ?> e : cfg.entrySet()) {
+                            if (e.getKey() instanceof String k) {
+                                normalized.put(k, e.getValue());
+                            }
+                        }
+                        nodeConfigs.put(nodeId, normalized);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new ServiceException("节点配置 JSON 解析失败: " + e.getMessage());
+        }
+        return nodeConfigs;
     }
 
     /**
@@ -173,8 +228,11 @@ public class BpmnValidationService {
      * <p><b>例外：申请节点</b>（起始事件直达的 UserTask）保持普通任务，办理人=${applicantUserId}——
      * change-state 重新进入 collection-MI 节点会造空壳执行树（S6 探针结论），退回申请人依赖普通任务形态
      * （M0 S1 T06 实证）。</p>
+     *
+     * <p><b>会签/或签/比例（M4）</b>：节点配置 completionRule 决定 completionCondition 变体——
+     * ALL（默认，引擎缺省即全员）/ OR（任意一人）/ PERCENT（比例达标），见 {@link #applyCompletionRule}。</p>
      */
-    private void normalize(BpmnModel model) {
+    private void normalize(BpmnModel model, Map<String, Map<String, Object>> nodeConfigs) {
         for (Process process : model.getProcesses()) {
             // 起始事件直达的 UserTask = 申请节点（保持普通任务）
             java.util.Set<String> applicantNodeIds = new java.util.HashSet<>();
@@ -192,14 +250,14 @@ public class BpmnValidationService {
                     if (applicantNodeIds.contains(ut.getId())) {
                         ut.setAssignee("${applicantUserId}");
                     } else {
-                        ensureMultiInstance(ut);
+                        ensureMultiInstance(ut, nodeConfigs.get(ut.getId()));
                     }
                 }
             }
         }
     }
 
-    private void ensureMultiInstance(UserTask task) {
+    private void ensureMultiInstance(UserTask task, Map<String, Object> nodeConfig) {
         if (task.getLoopCharacteristics() != null) {
             // N3：自带 MI 不改写，但校验 collection 名须节点专属（拒绝 legacy loopCardinality 形态）
             String ref = task.getLoopCharacteristics().getInputDataItem();
@@ -217,8 +275,52 @@ public class BpmnValidationService {
         //   setElementVariable(元素变量)  → flowable:elementVariable="wf_assignee_<id>"
         mi.setInputDataItem(USERS_COLLECTION_PREFIX + task.getId()); // collection 节点专属（N2 同构规避）
         mi.setElementVariable(elementVariable);
+        applyCompletionRule(task, mi, nodeConfig);
         task.setLoopCharacteristics(mi);
         task.setAssignee("${" + elementVariable + "}");
+    }
+
+    /**
+     * completionRule → completionCondition（M4 会签/或签/比例）。
+     *
+     * <p>引擎缺省 completionCondition 即全员 ALL，故 ALL 不写入；OR 与 PERCENT 显式写入。</p>
+     */
+    private void applyCompletionRule(UserTask task, MultiInstanceLoopCharacteristics mi,
+                                     Map<String, Object> nodeConfig) {
+        String rule = null;
+        Integer percent = null;
+        if (nodeConfig != null) {
+            Object ruleObj = nodeConfig.get("completionRule");
+            if (ruleObj != null) {
+                rule = String.valueOf(ruleObj).toUpperCase();
+            }
+            Object percentObj = nodeConfig.get("percent");
+            if (percentObj instanceof Number n) {
+                percent = n.intValue();
+            } else if (percentObj instanceof String s && !s.isBlank()) {
+                try {
+                    percent = Integer.parseInt(s.trim());
+                } catch (NumberFormatException ignore) {
+                    // 下方统一校验
+                }
+            }
+        }
+        if (rule == null || rule.isBlank() || RULE_ALL.equals(rule)) {
+            return; // 缺省即 ALL，不写 completionCondition
+        }
+        switch (rule) {
+            case RULE_OR -> mi.setCompletionCondition("${nrOfCompletedInstances >= 1}");
+            case RULE_PERCENT -> {
+                if (percent == null || percent < 1 || percent > 100) {
+                    throw new ServiceException("节点 [" + task.getId()
+                        + "] PERCENT 规则必须配置 1-100 的 percent");
+                }
+                // 整数化：completed*100 >= instances*percent
+                mi.setCompletionCondition("${nrOfCompletedInstances * 100 >= nrOfInstances * " + percent + "}");
+            }
+            default -> throw new ServiceException("节点 [" + task.getId()
+                + "] completionRule 仅支持 ALL/OR/PERCENT: " + rule);
+        }
     }
 
     private String serialize(BpmnModel model) {

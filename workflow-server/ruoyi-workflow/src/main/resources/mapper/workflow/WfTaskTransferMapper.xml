@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfTaskTransferMapper">
+
+    <resultMap type="WfTaskTransfer" id="WfTaskTransferResult">
+        <id     property="id"                    column="id"/>
+        <result property="approvalInstanceId"    column="approval_instance_id"/>
+        <result property="flowableTaskId"        column="flowable_task_id"/>
+        <result property="taskDefinitionKey"     column="task_definition_key"/>
+        <result property="fromUserId"            column="from_user_id"/>
+        <result property="toUserId"              column="to_user_id"/>
+        <result property="reason"                column="reason"/>
+        <result property="operatorUserId"        column="operator_user_id"/>
+        <result property="createdAt"             column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="WfTaskTransfer">
+        insert into wf_task_transfer (
+            id, approval_instance_id, flowable_task_id, task_definition_key,
+            from_user_id, to_user_id, reason, operator_user_id, created_at
+        ) values (
+            #{id}, #{approvalInstanceId}, #{flowableTaskId}, #{taskDefinitionKey},
+            #{fromUserId}, #{toUserId}, #{reason}, #{operatorUserId}, #{createdAt}
+        )
+    </insert>
+
+    <select id="selectByInstance" parameterType="String" resultMap="WfTaskTransferResult">
+        select id, approval_instance_id, flowable_task_id, task_definition_key,
+               from_user_id, to_user_id, reason, operator_user_id, created_at
+        from wf_task_transfer
+        where approval_instance_id = #{approvalInstanceId}
+        order by created_at asc
+    </select>
+</mapper>

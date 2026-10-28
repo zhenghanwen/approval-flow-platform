@@ -1,5 +1,6 @@
 package com.ruoyi.workflow.mapper;
 
+import java.util.Date;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Param;
@@ -24,4 +25,11 @@ public interface WfApprovalTaskMapper {
     List<WfApprovalTask> selectTodoByAssignee(@Param("assigneeUserId") String assigneeUserId);
 
     List<WfApprovalTask> selectDoneByAssignee(@Param("assigneeUserId") String assigneeUserId);
+
+    /**
+     * 批量结束流程实例下未完成的任务投影（撤回/取消用，PRD 11.4/11.5）。
+     */
+    int updateStatusByProcessInstance(@Param("processInstanceId") String processInstanceId,
+                                      @Param("taskStatus") String taskStatus,
+                                      @Param("completedAt") Date completedAt);
 }

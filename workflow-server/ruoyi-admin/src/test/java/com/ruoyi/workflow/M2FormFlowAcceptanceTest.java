@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.ruoyi.RuoYiApplication;
@@ -63,9 +64,49 @@ class M2FormFlowAcceptanceTest {
     @Autowired
     private FormSchemaVersionRepository schemaRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private static String formId;
     private static String versionId;
     private static String approvalInstanceId;
+
+    /** 前置清理：删除上次运行的测试残留（M2 表单 expense_apply 及其投影/版本），保证可重跑。 */
+    @Test
+    @Order(0)
+    void cleanupPreviousRun() {
+        // 1. 子表（M2 不产生任务/操作记录，防御性删除防 FK 阻碍）
+        jdbcTemplate.update("""
+            delete from wf_approval_operation where approval_instance_id in (
+                select id from wf_approval_instance where form_version_id in (
+                    select id from wf_form_version where form_id in (
+                        select id from wf_form_definition where form_code = 'expense_apply')))
+            """);
+        jdbcTemplate.update("""
+            delete from wf_approval_action where approval_instance_id in (
+                select id from wf_approval_instance where form_version_id in (
+                    select id from wf_form_version where form_id in (
+                        select id from wf_form_definition where form_code = 'expense_apply')))
+            """);
+        jdbcTemplate.update("""
+            delete from wf_approval_task where approval_instance_id in (
+                select id from wf_approval_instance where form_version_id in (
+                    select id from wf_form_version where form_id in (
+                        select id from wf_form_definition where form_code = 'expense_apply')))
+            """);
+        // 2. 审批单投影（formDataService.submit 双写落 MySQL）
+        jdbcTemplate.update("""
+            delete from wf_approval_instance where form_version_id in (
+                select id from wf_form_version where form_id in (
+                    select id from wf_form_definition where form_code = 'expense_apply'))
+            """);
+        // 3. 表单版本与定义
+        jdbcTemplate.update("""
+            delete from wf_form_version where form_id in (
+                select id from wf_form_definition where form_code = 'expense_apply')
+            """);
+        jdbcTemplate.update("delete from wf_form_definition where form_code = 'expense_apply'");
+    }
 
     @Test
     @Order(1)
