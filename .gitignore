@@ -1,0 +1,25 @@
+# GitNexus 索引缓存
+.gitnexus/
+
+# 构建产物
+target/
+build/
+out/
+dist/
+*.class
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# 依赖
+node_modules/
+
+# 环境与密钥
+.env
+*.env
