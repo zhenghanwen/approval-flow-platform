@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfApprovalDefinitionMapper">
+
+    <resultMap type="WfApprovalDefinition" id="WfApprovalDefinitionResult">
+        <id     property="id"                    column="id"/>
+        <result property="approvalCode"          column="approval_code"/>
+        <result property="approvalName"          column="approval_name"/>
+        <result property="categoryId"            column="category_id"/>
+        <result property="description"           column="description"/>
+        <result property="icon"                  column="icon"/>
+        <result property="currentFormVersionId"  column="current_form_version_id"/>
+        <result property="currentFlowVersionId"  column="current_flow_version_id"/>
+        <result property="allowWithdraw"         column="allow_withdraw"/>
+        <result property="allowCancel"           column="allow_cancel"/>
+        <result property="status"                column="status"/>
+        <result property="createdBy"             column="created_by"/>
+        <result property="createdAt"             column="created_at"/>
+        <result property="updatedAt"             column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectWfApprovalDefinitionVo">
+        select id, approval_code, approval_name, category_id, description, icon,
+               current_form_version_id, current_flow_version_id, allow_withdraw, allow_cancel,
+               status, created_by, created_at, updated_at
+        from wf_approval_definition
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfApprovalDefinitionResult">
+        <include refid="selectWfApprovalDefinitionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByCode" parameterType="String" resultMap="WfApprovalDefinitionResult">
+        <include refid="selectWfApprovalDefinitionVo"/>
+        where approval_code = #{approvalCode}
+    </select>
+
+    <select id="selectPublished" resultMap="WfApprovalDefinitionResult">
+        <include refid="selectWfApprovalDefinitionVo"/>
+        where status = 'PUBLISHED'
+        order by created_at desc
+    </select>
+
+    <select id="selectList" parameterType="WfApprovalDefinition" resultMap="WfApprovalDefinitionResult">
+        <include refid="selectWfApprovalDefinitionVo"/>
+        <where>
+            <if test="approvalCode != null and approvalCode != ''">and approval_code like concat('%', #{approvalCode}, '%')</if>
+            <if test="approvalName != null and approvalName != ''">and approval_name like concat('%', #{approvalName}, '%')</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfApprovalDefinition">
+        insert into wf_approval_definition
+            (id, approval_code, approval_name, category_id, description, icon,
+             current_form_version_id, current_flow_version_id, allow_withdraw, allow_cancel, status, created_by)
+        values
+            (#{id}, #{approvalCode}, #{approvalName}, #{categoryId}, #{description}, #{icon},
+             #{currentFormVersionId}, #{currentFlowVersionId}, #{allowWithdraw}, #{allowCancel}, #{status}, #{createdBy})
+    </insert>
+
+    <update id="update" parameterType="WfApprovalDefinition">
+        update wf_approval_definition
+        <set>
+            <if test="approvalName != null">approval_name = #{approvalName},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="icon != null">icon = #{icon},</if>
+            <if test="currentFormVersionId != null">current_form_version_id = #{currentFormVersionId},</if>
+            <if test="currentFlowVersionId != null">current_flow_version_id = #{currentFlowVersionId},</if>
+            <if test="allowWithdraw != null">allow_withdraw = #{allowWithdraw},</if>
+            <if test="allowCancel != null">allow_cancel = #{allowCancel},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

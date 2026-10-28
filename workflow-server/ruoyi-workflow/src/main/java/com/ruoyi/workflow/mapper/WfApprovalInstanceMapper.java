@@ -21,5 +21,7 @@ public interface WfApprovalInstanceMapper {
 
     WfApprovalInstance selectByProcessInstanceId(@Param("processInstanceId") String processInstanceId);
 
+    List<WfApprovalInstance> selectByApplicant(@Param("applicantUserId") String applicantUserId);
+
     List<WfApprovalInstance> selectList(WfApprovalInstance query);
 }

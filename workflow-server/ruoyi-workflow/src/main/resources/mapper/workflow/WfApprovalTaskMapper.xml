@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfApprovalTaskMapper">
+
+    <resultMap type="WfApprovalTask" id="WfApprovalTaskResult">
+        <id     property="id"                     column="id"/>
+        <result property="approvalInstanceId"     column="approval_instance_id"/>
+        <result property="processInstanceId"      column="process_instance_id"/>
+        <result property="flowableTaskId"         column="flowable_task_id"/>
+        <result property="taskDefinitionKey"      column="task_definition_key"/>
+        <result property="taskName"               column="task_name"/>
+        <result property="assigneeUserId"         column="assignee_user_id"/>
+        <result property="originalAssigneeUserId" column="original_assignee_user_id"/>
+        <result property="ownerUserId"            column="owner_user_id"/>
+        <result property="taskStatus"             column="task_status"/>
+        <result property="delegatedToUserId"      column="delegated_to_user_id"/>
+        <result property="parentTaskId"           column="parent_task_id"/>
+        <result property="dueAt"                  column="due_at"/>
+        <result property="createdAt"              column="created_at"/>
+        <result property="completedAt"            column="completed_at"/>
+    </resultMap>
+
+    <sql id="selectWfApprovalTaskVo">
+        select id, approval_instance_id, process_instance_id, flowable_task_id, task_definition_key,
+               task_name, assignee_user_id, original_assignee_user_id, owner_user_id, task_status,
+               delegated_to_user_id, parent_task_id, due_at, created_at, completed_at
+        from wf_approval_task
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByFlowableTaskId" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where flowable_task_id = #{flowableTaskId}
+    </select>
+
+    <select id="selectByInstance" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where approval_instance_id = #{approvalInstanceId}
+        order by created_at desc
+    </select>
+
+    <select id="selectTodoByAssignee" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where assignee_user_id = #{assigneeUserId} and task_status in ('CREATED', 'PENDING')
+        order by created_at desc
+    </select>
+
+    <select id="selectDoneByAssignee" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where assignee_user_id = #{assigneeUserId} and task_status in ('COMPLETED', 'CANCELLED')
+        order by completed_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfApprovalTask">
+        insert into wf_approval_task
+            (id, approval_instance_id, process_instance_id, flowable_task_id, task_definition_key,
+             task_name, assignee_user_id, original_assignee_user_id, owner_user_id, task_status,
+             delegated_to_user_id, parent_task_id, due_at, created_at, completed_at)
+        values
+            (#{id}, #{approvalInstanceId}, #{processInstanceId}, #{flowableTaskId}, #{taskDefinitionKey},
+             #{taskName}, #{assigneeUserId}, #{originalAssigneeUserId}, #{ownerUserId}, #{taskStatus},
+             #{delegatedToUserId}, #{parentTaskId}, #{dueAt}, #{createdAt}, #{completedAt})
+    </insert>
+
+    <update id="update" parameterType="WfApprovalTask">
+        update wf_approval_task
+        <set>
+            <if test="assigneeUserId != null">assignee_user_id = #{assigneeUserId},</if>
+            <if test="originalAssigneeUserId != null">original_assignee_user_id = #{originalAssigneeUserId},</if>
+            <if test="ownerUserId != null">owner_user_id = #{ownerUserId},</if>
+            <if test="taskStatus != null">task_status = #{taskStatus},</if>
+            <if test="delegatedToUserId != null">delegated_to_user_id = #{delegatedToUserId},</if>
+            <if test="parentTaskId != null">parent_task_id = #{parentTaskId},</if>
+            <if test="dueAt != null">due_at = #{dueAt},</if>
+            <if test="completedAt != null">completed_at = #{completedAt},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

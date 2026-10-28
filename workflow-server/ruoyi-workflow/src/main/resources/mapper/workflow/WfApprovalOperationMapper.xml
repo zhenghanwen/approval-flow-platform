@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfApprovalOperationMapper">
+
+    <resultMap type="WfApprovalOperation" id="WfApprovalOperationResult">
+        <id     property="id"                column="id"/>
+        <result property="approvalInstanceId" column="approval_instance_id"/>
+        <result property="operationType"     column="operation_type"/>
+        <result property="idempotencyKey"    column="idempotency_key"/>
+        <result property="operatorUserId"    column="operator_user_id"/>
+        <result property="requestJson"       column="request_json"/>
+        <result property="operationStatus"   column="operation_status"/>
+        <result property="resultJson"        column="result_json"/>
+        <result property="errorMessage"      column="error_message"/>
+        <result property="createdAt"         column="created_at"/>
+        <result property="updatedAt"         column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectWfApprovalOperationVo">
+        select id, approval_instance_id, operation_type, idempotency_key, operator_user_id,
+               request_json, operation_status, result_json, error_message, created_at, updated_at
+        from wf_approval_operation
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfApprovalOperationResult">
+        <include refid="selectWfApprovalOperationVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByOperatorAndKey" resultMap="WfApprovalOperationResult">
+        <include refid="selectWfApprovalOperationVo"/>
+        where operator_user_id = #{operatorUserId} and idempotency_key = #{idempotencyKey}
+    </select>
+
+    <select id="selectByInstance" parameterType="String" resultMap="WfApprovalOperationResult">
+        <include refid="selectWfApprovalOperationVo"/>
+        where approval_instance_id = #{approvalInstanceId}
+        order by created_at desc
+    </select>
+
+    <insert id="insert" parameterType="WfApprovalOperation">
+        insert into wf_approval_operation
+            (id, approval_instance_id, operation_type, idempotency_key, operator_user_id,
+             request_json, operation_status, result_json, error_message)
+        values
+            (#{id}, #{approvalInstanceId}, #{operationType}, #{idempotencyKey}, #{operatorUserId},
+             #{requestJson}, #{operationStatus}, #{resultJson}, #{errorMessage})
+    </insert>
+
+    <update id="update" parameterType="WfApprovalOperation">
+        update wf_approval_operation
+        <set>
+            <if test="operationStatus != null">operation_status = #{operationStatus},</if>
+            <if test="resultJson != null">result_json = #{resultJson},</if>
+            <if test="errorMessage != null">error_message = #{errorMessage},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

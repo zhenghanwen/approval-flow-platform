@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfWorkflowVersionMapper">
+
+    <resultMap type="WfWorkflowVersion" id="WfWorkflowVersionResult">
+        <id     property="id"                     column="id"/>
+        <result property="workflowId"             column="workflow_id"/>
+        <result property="versionNo"              column="version_no"/>
+        <result property="flowableDeploymentId"   column="flowable_deployment_id"/>
+        <result property="processDefinitionId"    column="process_definition_id"/>
+        <result property="processDefinitionKey"   column="process_definition_key"/>
+        <result property="bpmnHash"               column="bpmn_hash"/>
+        <result property="configJson"             column="config_json"/>
+        <result property="status"                 column="status"/>
+        <result property="publishedAt"            column="published_at"/>
+        <result property="publishedBy"            column="published_by"/>
+        <result property="createdAt"              column="created_at"/>
+    </resultMap>
+
+    <sql id="selectWfWorkflowVersionVo">
+        select id, workflow_id, version_no, flowable_deployment_id, process_definition_id,
+               process_definition_key, bpmn_hash, config_json, status, published_at, published_by, created_at
+        from wf_workflow_version
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfWorkflowVersionResult">
+        <include refid="selectWfWorkflowVersionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByWorkflowId" parameterType="String" resultMap="WfWorkflowVersionResult">
+        <include refid="selectWfWorkflowVersionVo"/>
+        where workflow_id = #{workflowId}
+        order by version_no desc
+    </select>
+
+    <select id="selectByWorkflowAndVersion" resultMap="WfWorkflowVersionResult">
+        <include refid="selectWfWorkflowVersionVo"/>
+        where workflow_id = #{workflowId} and version_no = #{versionNo}
+    </select>
+
+    <select id="selectMaxPublishedVersion" parameterType="String" resultType="Integer">
+        select max(version_no) from wf_workflow_version
+        where workflow_id = #{workflowId} and status = 'PUBLISHED'
+    </select>
+
+    <insert id="insert" parameterType="WfWorkflowVersion">
+        insert into wf_workflow_version
+            (id, workflow_id, version_no, flowable_deployment_id, process_definition_id,
+             process_definition_key, bpmn_hash, config_json, status, published_at, published_by)
+        values
+            (#{id}, #{workflowId}, #{versionNo}, #{flowableDeploymentId}, #{processDefinitionId},
+             #{processDefinitionKey}, #{bpmnHash}, #{configJson}, #{status}, #{publishedAt}, #{publishedBy})
+    </insert>
+
+    <update id="update" parameterType="WfWorkflowVersion">
+        update wf_workflow_version
+        <set>
+            <if test="flowableDeploymentId != null">flowable_deployment_id = #{flowableDeploymentId},</if>
+            <if test="processDefinitionId != null">process_definition_id = #{processDefinitionId},</if>
+            <if test="processDefinitionKey != null">process_definition_key = #{processDefinitionKey},</if>
+            <if test="configJson != null">config_json = #{configJson},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="publishedAt != null">published_at = #{publishedAt},</if>
+            <if test="publishedBy != null">published_by = #{publishedBy},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>
