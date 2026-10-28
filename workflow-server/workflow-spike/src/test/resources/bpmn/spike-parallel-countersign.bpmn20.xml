@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeParallelCountersign" name="S0冒烟-并行会签（3实例，全完才过）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f1" sourceRef="start" targetRef="countersign"/>
+        <userTask id="countersign" name="会签审批">
+            <multiInstanceLoopCharacteristics isSequential="false">
+                <loopCardinality>3</loopCardinality>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="f2" sourceRef="countersign" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>

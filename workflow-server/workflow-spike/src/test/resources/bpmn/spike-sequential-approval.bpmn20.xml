@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeSequentialApproval" name="S0冒烟-串行审批（部门→财务）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f1" sourceRef="start" targetRef="deptApproval"/>
+        <userTask id="deptApproval" name="部门审批" flowable:assignee="zhangsan"/>
+        <sequenceFlow id="f2" sourceRef="deptApproval" targetRef="financeApproval"/>
+        <userTask id="financeApproval" name="财务审批" flowable:assignee="lisi"/>
+        <sequenceFlow id="f3" sourceRef="financeApproval" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>
