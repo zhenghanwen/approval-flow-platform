@@ -89,6 +89,15 @@ spring:
           # #连接池最大阻塞等待时间（使用负值表示没有限制）
           max-wait: -1ms
 
+# Flowable 7.1 引擎（行为与 M0 Spike 保持一致；数据源绑定 master 见 ruoyi-workflow 的 WorkflowEngineConfig）
+flowable:
+  # 首次启动自动建/补 ACT_* 表（workflow_dev 库）——上线收口时改 false 走迁移脚本
+  database-schema-update: true
+  # 同步执行（v1 无异步 Job 诉求，async executor 不启用）
+  async-executor-activate: false
+  # 审计要求 full（M4 全操作留痕依赖变量级历史）
+  history-level: full
+
 # token配置
 token:
   # 令牌自定义标识

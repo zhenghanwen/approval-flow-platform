@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.ruoyi</groupId>
+        <artifactId>ruoyi</artifactId>
+        <version>3.9.2</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>jar</packaging>
+    <artifactId>ruoyi-workflow</artifactId>
+
+    <name>ruoyi-workflow</name>
+    <description>流程引擎接线模块（M1）：Flowable 7.1 starter + 引擎配置归口；M2 表单服务 / M3 审批服务后续归本模块</description>
+
+    <properties>
+        <flowable.version>7.1.0</flowable.version>
+    </properties>
+
+    <dependencies>
+        <!-- Flowable 7.1 Spring Boot starter（process 专用，不引 REST/CMMN/DMN） -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-spring-boot-starter-process</artifactId>
+            <version>${flowable.version}</version>
+        </dependency>
+
+        <!-- 若依通用工具（常量/异常体系） -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-common</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

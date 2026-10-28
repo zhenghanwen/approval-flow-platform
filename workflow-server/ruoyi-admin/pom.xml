@@ -42,6 +42,12 @@
             <artifactId>ruoyi-framework</artifactId>
         </dependency>
 
+        <!-- 流程引擎接线模块（Flowable 7.1 starter 在此） -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-workflow</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

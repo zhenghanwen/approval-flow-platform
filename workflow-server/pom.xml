@@ -148,6 +148,13 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <!-- 流程引擎接线模块 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-workflow</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -155,6 +162,7 @@
         <module>ruoyi-admin</module>
         <module>ruoyi-framework</module>
         <module>ruoyi-system</module>
+        <module>ruoyi-workflow</module>
         <module>ruoyi-common</module>
         <module>workflow-spike</module>
     </modules>
