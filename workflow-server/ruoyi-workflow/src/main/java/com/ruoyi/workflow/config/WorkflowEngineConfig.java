@@ -28,10 +28,19 @@ public class WorkflowEngineConfig {
 
     /**
      * Flowable starter 会收集容器内所有 EngineConfigurationConfigurer 并作用到引擎构建上。
+     *
+     * <p>额外钉住 databaseCatalog：JDBC 元数据 isTablePresent 的 catalog 参数来自
+     * connectionMetadataDefaultCatalog（starter 路径下为 null），MySQL Connector/J 8
+     * 对 null catalog 表示"跨所有库"——同服务器其他库（如 spike 残留的 ACT 表）会造成
+     * "表已存在"误判而走 upgrade 分支，撞空库直接崩。显式钉住本库即绕开。</p>
      */
     @Bean
     public EngineConfigurationConfigurer<SpringProcessEngineConfiguration> workflowEngineConfigurationConfigurer(
-        @org.springframework.beans.factory.annotation.Qualifier("masterDataSource") DataSource masterDataSource) {
-        return engineConfiguration -> engineConfiguration.setDataSource(masterDataSource);
+        @org.springframework.beans.factory.annotation.Qualifier("masterDataSource") DataSource masterDataSource,
+        @org.springframework.beans.factory.annotation.Value("${WF_DB_NAME:workflow_dev}") String dbName) {
+        return engineConfiguration -> {
+            engineConfiguration.setDataSource(masterDataSource);
+            engineConfiguration.setDatabaseCatalog(dbName);
+        };
     }
 }

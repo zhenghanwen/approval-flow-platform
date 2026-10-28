@@ -93,6 +93,9 @@ spring:
 flowable:
   # 首次启动自动建/补 ACT_* 表（workflow_dev 库）——上线收口时改 false 走迁移脚本
   database-schema-update: true
+  # 钉住元数据探测 schema：服务器上多个库（如 workflow_spike 残留 ACT 表）时，
+  # MySQL 驱动 nullCatalogMeansCurrent=false 会跨库误判"表已存在"而走 upgrade 分支
+  database-schema: workflow_dev
   # 同步执行（v1 无异步 Job 诉求，async executor 不启用）
   async-executor-activate: false
   # 审计要求 full（M4 全操作留痕依赖变量级历史）
