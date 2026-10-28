@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeGatewayProcess" name="S3探针：排他网关分支">
+        <startEvent id="start"/>
+        <sequenceFlow id="f0" sourceRef="start" targetRef="apply"/>
+        <userTask id="apply" name="填写申请" flowable:assignee="applicant"/>
+        <sequenceFlow id="f1" sourceRef="apply" targetRef="gwSplit"/>
+        <exclusiveGateway id="gwSplit" name="金额分流"/>
+        <sequenceFlow id="f2" sourceRef="gwSplit" targetRef="deptApproval">
+            <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${level == 'A'}</conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="f3" sourceRef="gwSplit" targetRef="financeApproval">
+            <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${level == 'B'}</conditionExpression>
+        </sequenceFlow>
+        <userTask id="deptApproval" name="部门审批" flowable:assignee="deptBoss"/>
+        <sequenceFlow id="f4" sourceRef="deptApproval" targetRef="end"/>
+        <userTask id="financeApproval" name="财务审批" flowable:assignee="finance1"/>
+        <sequenceFlow id="f5" sourceRef="financeApproval" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeParallelBranches" name="S3探针：并行网关双支（带fork前置任务）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f00" sourceRef="start" targetRef="prep"/>
+        <userTask id="prep" name="前置任务" flowable:assignee="u0"/>
+        <sequenceFlow id="f0" sourceRef="prep" targetRef="fork"/>
+        <parallelGateway id="fork"/>
+        <sequenceFlow id="f1" sourceRef="fork" targetRef="b1"/>
+        <userTask id="b1" name="支线一" flowable:assignee="u1"/>
+        <sequenceFlow id="f2" sourceRef="b1" targetRef="join"/>
+        <userTask id="b2" name="支线二" flowable:assignee="u2"/>
+        <sequenceFlow id="f5" sourceRef="fork" targetRef="b2"/>
+        <sequenceFlow id="f6" sourceRef="b2" targetRef="join"/>
+        <parallelGateway id="join"/>
+        <sequenceFlow id="f3" sourceRef="join" targetRef="afterJoin"/>
+        <userTask id="afterJoin" name="合并后任务" flowable:assignee="u3"/>
+        <sequenceFlow id="f4" sourceRef="afterJoin" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>
