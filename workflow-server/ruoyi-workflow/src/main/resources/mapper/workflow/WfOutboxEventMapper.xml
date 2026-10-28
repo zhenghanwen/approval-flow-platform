@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfOutboxEventMapper">
+
+    <resultMap type="WfOutboxEvent" id="WfOutboxEventResult">
+        <id     property="id"            column="id"/>
+        <result property="aggregateType" column="aggregate_type"/>
+        <result property="aggregateId"   column="aggregate_id"/>
+        <result property="eventType"     column="event_type"/>
+        <result property="payloadJson"   column="payload_json"/>
+        <result property="status"        column="status"/>
+        <result property="retryCount"    column="retry_count"/>
+        <result property="maxRetries"    column="max_retries"/>
+        <result property="nextRetryAt"   column="next_retry_at"/>
+        <result property="lastError"     column="last_error"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="processedAt"   column="processed_at"/>
+    </resultMap>
+
+    <sql id="selectWfOutboxEventVo">
+        select id, aggregate_type, aggregate_id, event_type, payload_json,
+               status, retry_count, max_retries, next_retry_at, last_error, created_at, processed_at
+        from wf_outbox_event
+    </sql>
+
+    <select id="selectById" parameterType="String" resultMap="WfOutboxEventResult">
+        <include refid="selectWfOutboxEventVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectDuePending" resultMap="WfOutboxEventResult">
+        <include refid="selectWfOutboxEventVo"/>
+        where status = 'PENDING'
+          and (next_retry_at is null or next_retry_at &lt;= #{now})
+        order by created_at asc
+        limit #{limit}
+    </select>
+
+    <select id="selectByAggregate" parameterType="String" resultMap="WfOutboxEventResult">
+        <include refid="selectWfOutboxEventVo"/>
+        where aggregate_id = #{aggregateId}
+        order by created_at asc
+    </select>
+
+    <insert id="insert" parameterType="WfOutboxEvent">
+        insert into wf_outbox_event
+            (id, aggregate_type, aggregate_id, event_type, payload_json,
+             status, retry_count, max_retries, next_retry_at, last_error, created_at, processed_at)
+        values
+            (#{id}, #{aggregateType}, #{aggregateId}, #{eventType}, #{payloadJson},
+             #{status}, #{retryCount}, #{maxRetries}, #{nextRetryAt}, #{lastError}, #{createdAt}, #{processedAt})
+    </insert>
+
+    <update id="update" parameterType="WfOutboxEvent">
+        update wf_outbox_event
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="retryCount != null">retry_count = #{retryCount},</if>
+            <if test="maxRetries != null">max_retries = #{maxRetries},</if>
+            <if test="nextRetryAt != null">next_retry_at = #{nextRetryAt},</if>
+            <if test="lastError != null">last_error = #{lastError},</if>
+            <if test="processedAt != null">processed_at = #{processedAt},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

@@ -1,5 +1,6 @@
 package com.ruoyi.workflow.service;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,14 +19,16 @@ import com.ruoyi.workflow.domain.WfExternalApi;
 import com.ruoyi.workflow.domain.WfExternalApiLog;
 import com.ruoyi.workflow.mapper.WfExternalApiLogMapper;
 import com.ruoyi.workflow.mapper.WfExternalApiMapper;
+import com.ruoyi.workflow.security.ExternalApiSecurityGuard;
 
 /**
  * 外部接口配置服务（PRD 8.1–8.2）。
  *
- * <p>M2 仅"登记 + 白名单 + 测试调用"骨架：</p>
+ * <p>M2 仅"登记 + 白名单 + 测试调用"骨架；M5 增加 SSRF 防护（PRD 17.2）：</p>
  * <ul>
  *     <li>登记接口配置（api_code 唯一，凭证与配置分离）；</li>
  *     <li>白名单：allowed_hosts_json 声明允许访问的主机范围，调用前校验；</li>
+ *     <li>SSRF：目标主机命中内网/保留/云元数据黑名单即拒绝，重定向关闭，响应有界读取；</li>
  *     <li>测试调用：仅允许调用 base_url 白名单内主机，结果与耗时落 wf_external_api_log。</li>
  * </ul>
  * <p>数据源绑定渲染（下拉/级联）为 M2 末期扩展点，本服务提供调用基元。</p>
@@ -38,16 +41,19 @@ public class ExternalApiService {
     private final WfExternalApiMapper apiMapper;
     private final WfExternalApiLogMapper logMapper;
     private final ObjectMapper objectMapper;
+    private final ExternalApiSecurityGuard securityGuard;
     private final HttpClient httpClient = HttpClient.newBuilder()
-        .followRedirects(HttpClient.Redirect.NORMAL)
+        .followRedirects(HttpClient.Redirect.NEVER)
         .build();
 
     public ExternalApiService(WfExternalApiMapper apiMapper,
                               WfExternalApiLogMapper logMapper,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              ExternalApiSecurityGuard securityGuard) {
         this.apiMapper = apiMapper;
         this.logMapper = logMapper;
         this.objectMapper = objectMapper;
+        this.securityGuard = securityGuard;
     }
 
     /**
@@ -98,7 +104,7 @@ public class ExternalApiService {
         if (!STATUS_ENABLED.equals(api.getStatus())) {
             throw new ServiceException("接口已禁用: " + api.getApiName());
         }
-        checkWhitelist(api);
+        checkWhitelistAndSsrf(api);
 
         long start = System.currentTimeMillis();
         WfExternalApiLog log = new WfExternalApiLog();
@@ -108,8 +114,9 @@ public class ExternalApiService {
         log.setRequestSummary(maskRequest(requestParams));
         try {
             String body = objectMapper.writeValueAsString(requestParams);
+            String url = api.getBaseUrl() + (api.getPath() == null ? "" : api.getPath());
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(api.getBaseUrl() + api.getPath()))
+                .uri(URI.create(url))
                 .timeout(Duration.ofMillis(api.getTimeoutMs() == null ? 5000 : api.getTimeoutMs()))
                 .header("Content-Type", "application/json")
                 .method(api.getHttpMethod() == null ? "GET" : api.getHttpMethod(),
@@ -117,22 +124,29 @@ public class ExternalApiService {
                         ? HttpRequest.BodyPublishers.noBody()
                         : HttpRequest.BodyPublishers.ofString(body))
                 .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             long duration = System.currentTimeMillis() - start;
+
+            // SSRF：有界读取响应，防超大响应拖垮内存（PRD 17.2）
+            String responseText;
+            try (InputStream in = response.body()) {
+                responseText = new String(securityGuard.readBounded(in),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            }
 
             log.setResponseStatus(response.statusCode());
             log.setDurationMs((int) duration);
             log.setSuccess(response.statusCode() >= 200 && response.statusCode() < 300);
             if (!log.getSuccess()) {
                 log.setErrorCode("HTTP_" + response.statusCode());
-                log.setErrorMessage(maskBody(response.body()));
+                log.setErrorMessage(maskBody(responseText));
             }
             logMapper.insert(log);
 
             return Map.of("success", log.getSuccess(),
                 "status", response.statusCode(),
                 "durationMs", duration,
-                "body", maskBody(response.body()));
+                "body", maskBody(responseText));
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - start;
             log.setDurationMs((int) duration);
@@ -145,9 +159,9 @@ public class ExternalApiService {
     }
 
     /**
-     * 白名单校验：allowed_hosts_json 声明允许访问的主机范围，仅允许 base_url 主机。
+     * 白名单 + SSRF 联合校验：allowed_hosts_json 声明允许的主机范围，命中 SSRF 黑名单即拒绝（PRD 17.2）。
      */
-    private void checkWhitelist(WfExternalApi api) {
+    private void checkWhitelistAndSsrf(WfExternalApi api) {
         if (api.getBaseUrl() == null || api.getBaseUrl().isBlank()) {
             throw new ServiceException("接口未配置 base_url");
         }
@@ -157,10 +171,7 @@ public class ExternalApiService {
         try {
             List<String> allowedHosts = objectMapper.readValue(api.getAllowedHostsJson(),
                 objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
-            String host = URI.create(api.getBaseUrl()).getHost();
-            if (host == null || allowedHosts.stream().noneMatch(h -> h.equalsIgnoreCase(host))) {
-                throw new ServiceException("base_url 主机不在白名单内: " + host);
-            }
+            securityGuard.assertSafeTarget(api.getBaseUrl(), allowedHosts);
         } catch (ServiceException e) {
             throw e;
         } catch (Exception e) {

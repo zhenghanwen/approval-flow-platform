@@ -40,6 +40,7 @@ import com.ruoyi.workflow.mapper.WfWorkflowDefinitionMapper;
 import com.ruoyi.workflow.mapper.WfWorkflowVersionMapper;
 import com.ruoyi.workflow.repository.ApprovalFormDataRepository;
 import com.ruoyi.workflow.repository.FormSchemaVersionRepository;
+import com.ruoyi.workflow.service.outbox.OutboxEventService;
 
 /**
  * 审批提交事务链（PRD 10.1 + 14.1）。
@@ -77,6 +78,7 @@ public class ApprovalSubmissionService {
     private final TaskService taskService;
     private final RepositoryService repositoryService;
     private final ObjectMapper objectMapper;
+    private final OutboxEventService outboxEventService;
 
     public ApprovalSubmissionService(WfApprovalDefinitionMapper approvalDefinitionMapper,
                                      WfWorkflowDefinitionMapper workflowDefinitionMapper,
@@ -93,7 +95,8 @@ public class ApprovalSubmissionService {
                                      RuntimeService runtimeService,
                                      TaskService taskService,
                                      RepositoryService repositoryService,
-                                     ObjectMapper objectMapper) {
+                                     ObjectMapper objectMapper,
+                                     OutboxEventService outboxEventService) {
         this.approvalDefinitionMapper = approvalDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowVersionMapper = workflowVersionMapper;
@@ -110,6 +113,7 @@ public class ApprovalSubmissionService {
         this.taskService = taskService;
         this.repositoryService = repositoryService;
         this.objectMapper = objectMapper;
+        this.outboxEventService = outboxEventService;
     }
 
     /**
@@ -252,6 +256,11 @@ public class ApprovalSubmissionService {
         operation.setResultJson(toJsonString(Map.of("approvalInstanceId", instance.getId(),
             "approvalNo", instance.getApprovalNo())));
         operationMapper.update(operation);
+
+        // 11. M5 outbox：提交事件（PRD 16.3，与审批事务原子提交，通知失败可重试不影响主流程）
+        outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_SUBMITTED",
+            Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                "applicantUserId", applicantUserId, "title", title));
 
         return instance;
     }

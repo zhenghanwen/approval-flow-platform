@@ -168,7 +168,10 @@ class M4ApprovalFlowAcceptanceTest {
         jdbcTemplate.update("delete from wf_form_definition where form_code in "
             + "('m4_expense_form', 'm4_or_percent_form')");
 
-        // 3. 最小插入 sys_user 3/4/5（M4 审批人），已存在则跳过
+        // 3. outbox 事件（M5 起审批动作会写入 wf_outbox_event，测试数据全清避免跨轮残留）
+        jdbcTemplate.update("delete from wf_outbox_event");
+
+        // 4. 最小插入 sys_user 3/4/5（M4 审批人），已存在则跳过
         ensureUser("3", "approver3");
         ensureUser("4", "approver4");
         ensureUser("5", "approver5");

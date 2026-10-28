@@ -68,19 +68,20 @@ public class WfApprovalController extends BaseController {
     }
 
     /**
-     * 审批单详情。
+     * 审批单详情（资源级鉴权：仅申请人/办理人/管理员，PRD 17.3）。
      */
     @GetMapping("/{id}")
     public AjaxResult detail(@PathVariable String id) {
-        return success(approvalTaskService.instanceDetail(id));
+        return success(approvalTaskService.instanceDetail(id, SecurityUtils.getUserId().toString()));
     }
 
     /**
-     * 时间线（审批操作记录聚合）。
+     * 时间线（审批操作记录聚合，资源级鉴权）。
      */
     @GetMapping("/{id}/timeline")
     public AjaxResult timeline(@PathVariable String id) {
-        List<WfApprovalAction> actions = approvalTaskService.timeline(id);
+        List<WfApprovalAction> actions = approvalTaskService.timeline(
+            id, SecurityUtils.getUserId().toString());
         return success(actions);
     }
 

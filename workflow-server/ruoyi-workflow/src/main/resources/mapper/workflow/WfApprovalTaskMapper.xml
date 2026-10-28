@@ -43,6 +43,28 @@
         order by created_at desc
     </select>
 
+    <select id="existsByInstanceAndAssignee" resultType="boolean">
+        select count(1) &gt; 0
+        from wf_approval_task
+        where approval_instance_id = #{approvalInstanceId}
+          and assignee_user_id = #{assigneeUserId}
+        limit 1
+    </select>
+
+    <select id="selectByProcessInstanceAndStatus" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where process_instance_id = #{processInstanceId}
+          and task_status = #{taskStatus}
+        order by created_at asc
+    </select>
+
+    <select id="selectPendingByInstance" parameterType="String" resultMap="WfApprovalTaskResult">
+        <include refid="selectWfApprovalTaskVo"/>
+        where approval_instance_id = #{approvalInstanceId}
+          and task_status in ('CREATED', 'PENDING')
+        order by created_at asc
+    </select>
+
     <select id="selectTodoByAssignee" parameterType="String" resultMap="WfApprovalTaskResult">
         <include refid="selectWfApprovalTaskVo"/>
         where assignee_user_id = #{assigneeUserId} and task_status in ('CREATED', 'PENDING')

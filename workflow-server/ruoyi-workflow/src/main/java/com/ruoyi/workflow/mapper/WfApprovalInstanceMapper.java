@@ -24,4 +24,14 @@ public interface WfApprovalInstanceMapper {
     List<WfApprovalInstance> selectByApplicant(@Param("applicantUserId") String applicantUserId);
 
     List<WfApprovalInstance> selectList(WfApprovalInstance query);
+
+    /**
+     * PENDING 且已关联流程实例的审批单（一致性恢复：引擎实例消失 vs 历史完成，PRD 16.4）。
+     */
+    List<WfApprovalInstance> selectPendingWithProcess();
+
+    /**
+     * 提交中（SUBMITTING）的审批单（一致性恢复：流程未启动/消失 → FAILED，PRD 16.4）。
+     */
+    List<WfApprovalInstance> selectStuckSubmitting();
 }

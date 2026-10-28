@@ -161,6 +161,9 @@ class M3ApprovalFlowAcceptanceTest {
             + "('expense_form', 'm4_expense_form', 'm4_or_percent_form'))");
         jdbcTemplate.update("delete from wf_form_definition where form_code in "
             + "('expense_form', 'm4_expense_form', 'm4_or_percent_form')");
+
+        // 3. outbox 事件（M5 起审批动作会写入 wf_outbox_event，测试数据全清避免跨轮残留）
+        jdbcTemplate.update("delete from wf_outbox_event");
     }
 
     /** 审批流程 BPMN：填写申请 → 部门审批 → 结束（普通 UserTask，规一化门禁统一改写为多实例）。 */

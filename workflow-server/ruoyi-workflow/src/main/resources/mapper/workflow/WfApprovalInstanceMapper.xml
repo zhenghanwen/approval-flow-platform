@@ -67,6 +67,19 @@
         order by created_at desc
     </select>
 
+    <select id="selectPendingWithProcess" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        where business_status = 'PENDING'
+          and process_instance_id is not null
+        order by created_at asc
+    </select>
+
+    <select id="selectStuckSubmitting" resultMap="WfApprovalInstanceResult">
+        <include refid="selectWfApprovalInstanceVo"/>
+        where business_status = 'SUBMITTING'
+        order by created_at asc
+    </select>
+
     <insert id="insert" parameterType="WfApprovalInstance">
         insert into wf_approval_instance
             (id, approval_no, approval_definition_id, form_version_id, workflow_version_id,

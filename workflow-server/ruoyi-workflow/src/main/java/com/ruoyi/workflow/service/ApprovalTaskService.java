@@ -41,6 +41,7 @@ import com.ruoyi.workflow.mapper.WfApprovalActionMapper;
 import com.ruoyi.workflow.mapper.WfApprovalDefinitionMapper;
 import com.ruoyi.workflow.mapper.WfApprovalInstanceMapper;
 import com.ruoyi.workflow.mapper.WfApprovalOperationMapper;
+import com.ruoyi.workflow.service.outbox.OutboxEventService;
 import com.ruoyi.workflow.mapper.WfApprovalTaskMapper;
 import com.ruoyi.workflow.mapper.WfTaskAddSignMapper;
 import com.ruoyi.workflow.mapper.WfTaskReturnMapper;
@@ -108,6 +109,7 @@ public class ApprovalTaskService {
     private final TaskService taskService;
     private final RuntimeService runtimeService;
     private final RepositoryService repositoryService;
+    private final OutboxEventService outboxEventService;
 
     public ApprovalTaskService(WfApprovalTaskMapper approvalTaskMapper,
                                WfApprovalInstanceMapper approvalInstanceMapper,
@@ -124,7 +126,8 @@ public class ApprovalTaskService {
                                ObjectMapper objectMapper,
                                TaskService taskService,
                                RuntimeService runtimeService,
-                               RepositoryService repositoryService) {
+                               RepositoryService repositoryService,
+                               OutboxEventService outboxEventService) {
         this.approvalTaskMapper = approvalTaskMapper;
         this.approvalInstanceMapper = approvalInstanceMapper;
         this.approvalActionMapper = approvalActionMapper;
@@ -141,6 +144,7 @@ public class ApprovalTaskService {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.repositoryService = repositoryService;
+        this.outboxEventService = outboxEventService;
     }
 
     // ==================== 基础操作（M3） ====================
@@ -189,6 +193,13 @@ public class ApprovalTaskService {
             comment, beforeStatus, ended ? STATUS_APPROVED : STATUS_PENDING, op.getId());
 
         finishOperation(op, instance.getId());
+
+        // M5 outbox：流程结束才发终态事件（PRD 16.3，与审批事务原子提交）
+        if (ended) {
+            outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_APPROVED",
+                Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                    "applicantUserId", instance.getApplicantUserId()));
+        }
         return instance;
     }
 
@@ -233,6 +244,9 @@ public class ApprovalTaskService {
             comment, beforeStatus, STATUS_RETURNED, op.getId());
 
         finishOperation(op, instance.getId());
+        outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_REJECTED",
+            Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                "operatorUserId", operator));
         return instance;
     }
 
@@ -426,6 +440,9 @@ public class ApprovalTaskService {
             reason, TASK_STATUS_PENDING, STATUS_RETURNED, op.getId());
 
         finishOperation(op, instance.getId());
+        outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_RETURNED",
+            Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                "targetNodeKey", targetNodeKey, "operatorUserId", operator));
         return instance;
     }
 
@@ -500,6 +517,9 @@ public class ApprovalTaskService {
         insertAction(approvalInstanceId, null, null, operator, ACTION_WITHDRAW,
             reason, STATUS_PENDING, STATUS_WITHDRAWN, op.getId());
         finishOperation(op, approvalInstanceId);
+        outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_WITHDRAWN",
+            Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                "operatorUserId", operator));
         return instance;
     }
 
@@ -532,6 +552,9 @@ public class ApprovalTaskService {
         insertAction(approvalInstanceId, null, null, operator, ACTION_CANCEL,
             reason, STATUS_PENDING, STATUS_CANCELLED, op.getId());
         finishOperation(op, approvalInstanceId);
+        outboxEventService.publish("APPROVAL", instance.getId(), "APPROVAL_CANCELLED",
+            Map.of("approvalInstanceId", instance.getId(), "approvalNo", instance.getApprovalNo(),
+                "operatorUserId", operator));
         return instance;
     }
 
@@ -559,7 +582,7 @@ public class ApprovalTaskService {
     }
 
     /**
-     * 审批单详情。
+     * 审批单详情（内部：无鉴权，供审批动作/恢复等内部调用）。
      */
     public WfApprovalInstance instanceDetail(String approvalInstanceId) {
         WfApprovalInstance instance = approvalInstanceMapper.selectById(approvalInstanceId);
@@ -570,11 +593,52 @@ public class ApprovalTaskService {
     }
 
     /**
+     * 审批单详情（对外：资源级鉴权，PRD 17.3）。
+     *
+     * <p>仅申请人 / 该单任务办理人 / 管理员（"1"）可查看，防 ID 遍历。</p>
+     */
+    public WfApprovalInstance instanceDetail(String approvalInstanceId, String operator) {
+        WfApprovalInstance instance = instanceDetail(approvalInstanceId);
+        requireCanView(instance, operator);
+        return instance;
+    }
+
+    /**
      * 时间线：审批操作记录按时间正序聚合（PRD GET /approvals/{id}/timeline）。
      */
     public List<WfApprovalAction> timeline(String approvalInstanceId) {
         instanceDetail(approvalInstanceId);
         return approvalActionMapper.selectByInstance(approvalInstanceId);
+    }
+
+    /**
+     * 时间线（对外：资源级鉴权，PRD 17.3）。
+     */
+    public List<WfApprovalAction> timeline(String approvalInstanceId, String operator) {
+        instanceDetail(approvalInstanceId, operator);
+        return approvalActionMapper.selectByInstance(approvalInstanceId);
+    }
+
+    /**
+     * 资源级鉴权：仅申请人 / 该单任务办理人 / 管理员（"1"）可访问。
+     */
+    public boolean canView(WfApprovalInstance instance, String operator) {
+        if (operator == null || operator.isBlank()) {
+            return false;
+        }
+        if ("1".equals(operator)) {
+            return true;
+        }
+        if (operator.equals(instance.getApplicantUserId())) {
+            return true;
+        }
+        return approvalTaskMapper.existsByInstanceAndAssignee(instance.getId(), operator);
+    }
+
+    private void requireCanView(WfApprovalInstance instance, String operator) {
+        if (!canView(instance, operator)) {
+            throw new ServiceException("无权查看该审批单");
+        }
     }
 
     // ==================== 内部工具 ====================
