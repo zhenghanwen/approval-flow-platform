@@ -4,11 +4,11 @@ spring:
         type: com.alibaba.druid.pool.DruidDataSource
         driverClassName: com.mysql.cj.jdbc.Driver
         druid:
-            # 主库数据源
+            # 主库数据源（凭证走环境变量占位符，本地值在 IDE 运行配置 / .env 注入，不进 git）
             master:
-                url: jdbc:mysql://localhost:3306/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
-                username: root
-                password: password
+                url: jdbc:mysql://${WF_DB_HOST:127.0.0.1}:${WF_DB_PORT:3306}/${WF_DB_NAME:workflow_dev}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+                username: ${WF_DB_USERNAME:workflow}
+                password: ${WF_DB_PASSWORD:}
             # 从库数据源
             slave:
                 # 从数据源开关/默认关闭
