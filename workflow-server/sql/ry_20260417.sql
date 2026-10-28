@@ -9,6 +9,7 @@ create table sys_dept (
   dept_name         varchar(30)     default ''                 comment '部门名称',
   order_num         int(4)          default 0                  comment '显示顺序',
   leader            varchar(20)     default null               comment '负责人',
+  manager_user_id   bigint(20)      default null               comment '部门负责人用户ID（PRD 4.2 manager_user_id 映射，E1 部门负责人规则）',
   phone             varchar(11)     default null               comment '联系电话',
   email             varchar(50)     default null               comment '邮箱',
   status            char(1)         default '0'                comment '部门状态（0正常 1停用）',
@@ -60,14 +61,22 @@ create table sys_user (
   update_by         varchar(64)     default ''                 comment '更新者',
   update_time       datetime                                   comment '更新时间',
   remark            varchar(500)    default null               comment '备注',
-  primary key (user_id)
+  manager_user_id   bigint(20)      default null               comment '直属主管用户ID（PRD 4.5 manager_user_id 映射，E1 主管规则）',
+  source_type       varchar(20)     default 'INTERNAL'         comment '用户来源（INTERNAL/EXTERNAL，PRD 4.5）',
+  external_provider_id varchar(36)  default null               comment '外部身份提供方ID（PRD 4.5）',
+  external_user_id  varchar(200)    default null               comment '外部用户ID（PRD 4.5）',
+  primary key (user_id),
+  key idx_sys_user_manager (manager_user_id)
 ) engine=innodb auto_increment=100 comment = '用户信息表';
+
+-- 外部身份唯一约束（PRD：external_provider_id+external_user_id 唯一；任一为 NULL 多行不冲突）
+alter table sys_user add unique key uk_sys_user_external (external_provider_id, external_user_id);
 
 -- ----------------------------
 -- 初始化-用户信息表数据
 -- ----------------------------
-insert into sys_user values(1,  103, 'admin', '若依', '00', 'ry@163.com', '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '管理员');
-insert into sys_user values(2,  105, 'ry',    '若依', '00', 'ry@qq.com',  '15666666666', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '测试员');
+insert into sys_user (user_id, dept_id, user_name, nick_name, user_type, email, phonenumber, sex, avatar, password, status, del_flag, login_ip, login_date, pwd_update_date, create_by, create_time, update_by, update_time, remark) values(1,  103, 'admin', '若依', '00', 'ry@163.com', '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '管理员');
+insert into sys_user (user_id, dept_id, user_name, nick_name, user_type, email, phonenumber, sex, avatar, password, status, del_flag, login_ip, login_date, pwd_update_date, create_by, create_time, update_by, update_time, remark) values(2,  105, 'ry',    '若依', '00', 'ry@qq.com',  '15666666666', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '测试员');
 
 
 -- ----------------------------

@@ -77,6 +77,18 @@ public class SysUser extends BaseEntity
     /** 密码最后更新时间 */
     private Date pwdUpdateDate;
 
+    /** 直属主管用户ID（PRD 4.5，E1 主管规则） */
+    private Long managerUserId;
+
+    /** 用户来源（INTERNAL/EXTERNAL，PRD 4.5） */
+    private String sourceType;
+
+    /** 外部身份提供方ID（PRD 4.5） */
+    private String externalProviderId;
+
+    /** 外部用户ID（PRD 4.5） */
+    private String externalUserId;
+
     /** 部门对象 */
     @Excels({
         @Excel(name = "部门名称", targetAttr = "deptName", type = Type.EXPORT),
@@ -310,6 +322,46 @@ public class SysUser extends BaseEntity
         this.roleId = roleId;
     }
 
+    public Long getManagerUserId()
+    {
+        return managerUserId;
+    }
+
+    public void setManagerUserId(Long managerUserId)
+    {
+        this.managerUserId = managerUserId;
+    }
+
+    public String getSourceType()
+    {
+        return sourceType;
+    }
+
+    public void setSourceType(String sourceType)
+    {
+        this.sourceType = sourceType;
+    }
+
+    public String getExternalProviderId()
+    {
+        return externalProviderId;
+    }
+
+    public void setExternalProviderId(String externalProviderId)
+    {
+        this.externalProviderId = externalProviderId;
+    }
+
+    public String getExternalUserId()
+    {
+        return externalUserId;
+    }
+
+    public void setExternalUserId(String externalUserId)
+    {
+        this.externalUserId = externalUserId;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -327,6 +379,10 @@ public class SysUser extends BaseEntity
             .append("loginIp", getLoginIp())
             .append("loginDate", getLoginDate())
             .append("pwdUpdateDate", getPwdUpdateDate())
+            .append("managerUserId", getManagerUserId())
+            .append("sourceType", getSourceType())
+            .append("externalProviderId", getExternalProviderId())
+            .append("externalUserId", getExternalUserId())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

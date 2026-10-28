@@ -37,6 +37,9 @@ public class SysDept extends BaseEntity
     /** 负责人 */
     private String leader;
 
+    /** 部门负责人用户ID（PRD 4.2，E1 部门负责人规则） */
+    private Long managerUserId;
+
     /** 联系电话 */
     private String phone;
 
@@ -118,6 +121,16 @@ public class SysDept extends BaseEntity
         this.leader = leader;
     }
 
+    public Long getManagerUserId()
+    {
+        return managerUserId;
+    }
+
+    public void setManagerUserId(Long managerUserId)
+    {
+        this.managerUserId = managerUserId;
+    }
+
     @Size(min = 0, max = 11, message = "联系电话长度不能超过11个字符")
     public String getPhone()
     {
@@ -190,6 +203,7 @@ public class SysDept extends BaseEntity
             .append("deptName", getDeptName())
             .append("orderNum", getOrderNum())
             .append("leader", getLeader())
+            .append("managerUserId", getManagerUserId())
             .append("phone", getPhone())
             .append("email", getEmail())
             .append("status", getStatus())
