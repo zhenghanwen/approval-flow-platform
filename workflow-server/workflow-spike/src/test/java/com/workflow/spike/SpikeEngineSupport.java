@@ -57,4 +57,11 @@ public abstract class SpikeEngineSupport {
             .addClasspathResource("bpmn/" + resource)
             .deploy();
     }
+
+    /** 部署内存中的 BPMN XML 内容（BpmnNormalizer 输出的规一化产物走这条通道，需与 classpath 资源同效）。 */
+    protected static void deployBpmnContent(String resourceName, byte[] xmlContent) {
+        repositoryService.createDeployment()
+            .addBytes(resourceName, xmlContent)
+            .deploy();
+    }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikePurchaseProcess" name="S5采购审批贯穿案例（申请→会签→金额分流→财务或直接结束）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f0" sourceRef="start" targetRef="apply"/>
+        <userTask id="apply" name="填写采购申请" flowable:assignee="applicant"/>
+        <sequenceFlow id="f1" sourceRef="apply" targetRef="counterSign"/>
+        <userTask id="counterSign" name="多部门会签" flowable:assignee="${wfCsUser}">
+            <multiInstanceLoopCharacteristics isSequential="false">
+                <loopDataInputRef>wf_users_counterSign</loopDataInputRef>
+                <inputDataItem name="wfCsUser"/>
+                <completionCondition>${nrOfCompletedInstances == nrOfInstances}</completionCondition>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="f2" sourceRef="counterSign" targetRef="gwAmount"/>
+        <exclusiveGateway id="gwAmount" name="金额分流"/>
+        <sequenceFlow id="f3" sourceRef="gwAmount" targetRef="end">
+            <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${amount &lt; 50000}</conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="f4" sourceRef="gwAmount" targetRef="financeApproval">
+            <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${amount >= 50000}</conditionExpression>
+        </sequenceFlow>
+        <userTask id="financeApproval" name="财务审批" flowable:assignee="financeBoss">
+            <multiInstanceLoopCharacteristics isSequential="false">
+                <loopCardinality>${wf_n_financeApproval}</loopCardinality>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="f5" sourceRef="financeApproval" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>

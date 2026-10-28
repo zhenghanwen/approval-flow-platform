@@ -28,6 +28,13 @@
             <version>${flowable.version}</version>
         </dependency>
 
+        <!-- BPMN 模型转换器（BpmnNormalizer 需要，engine 未传递携带） -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-bpmn-converter</artifactId>
+            <version>${flowable.version}</version>
+        </dependency>
+
         <!-- MySQL 驱动（版本由 spring-boot-dependencies BOM 管理） -->
         <dependency>
             <groupId>com.mysql</groupId>

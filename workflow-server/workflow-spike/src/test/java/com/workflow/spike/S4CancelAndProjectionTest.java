@@ -2,15 +2,9 @@ package com.workflow.spike;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.flowable.common.engine.api.FlowableObjectNotFoundException;
-import org.flowable.common.engine.api.delegate.event.FlowableEngineEntityEvent;
-import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
-import org.flowable.common.engine.api.delegate.event.FlowableEvent;
-import org.flowable.common.engine.api.delegate.event.FlowableEventListener;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -38,9 +32,7 @@ class S4CancelAndProjectionTest extends SpikeEngineSupport {
     private static final String BPMN = "spike-sequential-approval.bpmn20.xml";
 
     /** T12 雏形：wf_approval_task 的内存镜像（ taskId → RUNNING/COMPLETED/REMOVED ）。 */
-    static final InMemoryTaskProjection PROJECTION = new InMemoryTaskProjection();
-
-    @BeforeAll
+    static final InMemoryTaskProjection PROJECTION = new InMemoryTaskProjection();    @BeforeAll
     static void registerListener() {
         // JUnit5 语义：父类 @BeforeAll 先于子类执行 → 引擎与 runtimeService 此处必然已就绪
         // （引擎按测试类独立构建，注册只影响本类，无跨类串扰）
@@ -154,79 +146,5 @@ class S4CancelAndProjectionTest extends SpikeEngineSupport {
             .toList();
     }
 
-    // ====================== T12 投影雏形：事件监听 ======================
-
-    /** 很薄的 wf_approval_task 雏形：只关心状态，映射由事件驱动。 */
-    static class InMemoryTaskProjection implements FlowableEventListener {
-        private final Map<String, String> taskStates = new LinkedHashMap<>();
-        private String lastProcessEndState;
-
-        void reset() {
-            taskStates.clear();
-            lastProcessEndState = null;
-        }
-
-        String stateOf(String taskId) {
-            return taskStates.get(taskId);
-        }
-
-        java.util.List<String> runningIds() {
-            return taskStates.entrySet().stream()
-                .filter(e -> "RUNNING".equals(e.getValue()))
-                .map(Map.Entry::getKey)
-                .toList();
-        }
-
-        String lastProcessEndState() {
-            return lastProcessEndState;
-        }
-
-        @Override
-        public void onEvent(FlowableEvent event) {
-            // 引擎事件类型众多，先取 type 分派；PROCESS_COMPLETED/CANCELLED 本身也带实体
-            // （entity=流程实例执行），所以流程级语义必须在实体分派【之前】处理
-            if (!(event.getType() instanceof FlowableEngineEventType type)) {
-                return;
-            }
-            switch (type) {
-                case PROCESS_COMPLETED -> lastProcessEndState = "COMPLETED";
-                case PROCESS_CANCELLED -> lastProcessEndState = "CANCELLED";
-                case TASK_CREATED, TASK_COMPLETED, ENTITY_DELETED -> {
-                    if (event instanceof FlowableEngineEntityEvent entityEvent
-                        && entityEvent.getEntity() instanceof TaskEntity task) {
-                        switch (type) {
-                            case TASK_CREATED -> taskStates.put(task.getId(), "RUNNING");
-                            case TASK_COMPLETED -> taskStates.put(task.getId(), "COMPLETED");
-                            case ENTITY_DELETED -> {
-                                String prev = taskStates.get(task.getId());
-                                // 已完成的任务被级联删除不折叠为 REMOVED（保历史语义）
-                                if (!"COMPLETED".equals(prev)) {
-                                    taskStates.put(task.getId(), "REMOVED");
-                                }
-                            }
-                            default -> { }
-                        }
-                    }
-                }
-                default -> { /* 其他事件不投影 */ }
-            }
-        }
-
-        @Override
-        public boolean isFailOnException() {
-            return true;
-        }
-
-        // Flowable 7.1.0 起 FlowableEventListener 新增事务生命周期契约：
-        // 本投影只做内存镜像、无事务横切需求，保持"每事件即时回调"旧行为
-        @Override
-        public boolean isFireOnTransactionLifecycleEvent() {
-            return false;
-        }
-
-        @Override
-        public String getOnTransaction() {
-            return null;
-        }
-    }
+    // （T12 投影实现已抽取为独立类 InMemoryTaskProjection.java，S4/S5 共用）
 }

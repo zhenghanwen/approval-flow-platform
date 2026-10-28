@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://workflow.spike/bpmn">
+
+    <process id="spikeNormalPlain" name="S5规一化输入（未做统一MI建模的普通串行审批）">
+        <startEvent id="start"/>
+        <sequenceFlow id="f0" sourceRef="start" targetRef="apply"/>
+        <userTask id="apply" name="填写申请" flowable:assignee="applicant"/>
+        <sequenceFlow id="f1" sourceRef="apply" targetRef="approve"/>
+        <userTask id="approve" name="审批" flowable:assignee="boss"/>
+        <sequenceFlow id="f2" sourceRef="approve" targetRef="end"/>
+        <endEvent id="end"/>
+    </process>
+
+</definitions>

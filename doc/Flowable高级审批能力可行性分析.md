@@ -3,7 +3,7 @@
 **目标版本：** Flowable 7.x（下文结论以 7.x 为准，与 6.x 差异处单独标注）
 **分析对象：** 《低代码审批流平台PRD.md》第四阶段"高级审批"中的六类操作能力
 **分析方式：** Flowable 官方仓库源码审查 + 官方文档核对，并对照《Flowable高级审批能力验证.md》的既有结论做修正与补充
-**结论性质：** 源码级确认，非实际运行测试报告；所有结论仍需按 §7 测试清单在目标环境二次验证
+**结论性质：** 源码级确认 + **M0 Spike 实测已复核**（2026-10-28：S0–S5 集成测试 22/22 全绿，见文末"M0 实测修订"一节；B0–B5 边界已逐一用引擎实际行为验证）
 
 ---
 
@@ -162,9 +162,9 @@ runtimeService.createChangeActivityStateBuilder()
 
 | # | 边界 | 实际状态（前身说法已修正） | 处置 |
 |---|------|------|------|
-| B0 | **退回进/出多实例（会签）节点** | ✅ **change-state 支持**：`ChangeStateForMultiInstanceTest` 20 例官方测试覆盖进/出串行与并行多实例、跨多实例任务移动、多实例并行任务收敛单活动。早前依据的 "move a wait state to a multi instance activity 未支持" 出自**版本升级迁移**文档（`ProcessInstanceMigrationService`），不适用于 change-state —— 两者是不同 API | 会签节点可进退回白名单，但目标进入多实例时**按集合变量整组重建实例**，语义在 §3.3.2 明确 |
-| B1 | **并行分支中单个执行跨分支退回** | ⚠️ 有风险。官方测试只覆盖"多执行→单执行收敛"与"单执行→多执行分叉"的结构性移动（`ChangeStateForGatewaysTest` 30 例），单执行退回会让汇聚网关等待已取消分支 | 并行网关内节点默认禁止作为退回目标；若必须退，用 `moveExecutionsToSingleActivityId` / `moveActivityIdsToSingleActivityId` 收敛全部分支再整体退，且必须过 T10/T14b 测试 |
-| B2 | **直接移动到网关节点本身（排他/并行/包含）** | ⚠️ 网关不是等待状态，目标应为网关**前后的活动**；官方测试的 "IntoSynchronizingParallelGatewayFirst/Last" 指退回到汇聚网关前方的分支任务，不是把网关元素设为目标 | 目标白名单仅允许 UserTask（含多实例 UserTask），禁止网关/边界事件等元素 |
+| B0 | **退回进/出多实例（会签）节点** | ✅ **change-state 支持**：`ChangeStateForMultiInstanceTest` 20 例官方测试覆盖进/出串行与并行多实例、跨多实例任务移动、多实例并行任务收敛单活动。早前依据的 "move a wait state to a multi instance activity 未支持" 出自**版本升级迁移**文档（`ProcessInstanceMigrationService`），不适用于 change-state —— 两者是不同 API。**M0 实测（7.1.0）**：并行 MI 部分完成态整区收回的合法姿势 = **节点级 `moveActivityIdTo`**（`S5PurchaseE2ETest` T22，重走到底干净）；把 **MI 根执行**塞进 `moveExecutionsToSingleActivityId` 会撞 `act_ru_task` 外键（删序缺陷）——MI 根执行禁入收编集合 | 会签节点可进退回白名单，但目标进入多实例时**按集合变量整组重建实例**，语义在 §3.3.2 明确 |
+| B1 | **并行分支中单个执行跨分支退回** | ⚠️ 有风险。官方测试只覆盖"多执行→单执行收敛"与"单执行→多执行分叉"的结构性移动（`ChangeStateForGatewaysTest` 30 例），单执行退回会让汇聚网关等待已取消分支。**M0 实测（7.1.0）**：跨支退回引擎不报错——b2 执行被吞、b1 幽灵复制×2、补完成后 join **永久挂起**（双支活跃与单执行两种形态均复现，`S3BoundaryTest` 哨兵） | 并行网关内节点默认禁止作为退回目标；若必须退，用 `moveExecutionsToSingleActivityId` 收敛**全部子执行（含 join 挂起执行）**再整体退，且必须过 T10/T14b 测试 |
+| B2 | **直接移动到网关节点本身（排他/并行/包含）** | ⚠️ 网关不是等待状态，目标应为网关**前后的活动**；官方测试的 "IntoSynchronizingParallelGatewayFirst/Last" 指退回到汇聚网关前方的分支任务，不是把网关元素设为目标。**M0 实测（7.1.0）**：目标=排他网关时引擎**不抛异常也不静默不动**，而是按出线条件重走一圈——任务重建成新 ID、原地"重开"丢失当前办理进度（`S3BoundaryTest` 哨兵） | 目标白名单仅允许 UserTask（含多实例 UserTask），禁止网关/边界事件等元素；**拦截必须前置服务层，不能依赖引擎报错** |
 | B3 | **CallActivity 进/出子流程实例** | ✅ **支持**：builder 提供 `moveActivityIdToParentActivityId`（终止子流程实例、全部执行移回父流程）与 `moveActivityIdToSubProcessInstanceActivityId`（含指定定义版本重载），`ChangeStateForCallActivityTest` 6 例覆盖 | 第一版低代码流程通常不生成 CallActivity，不需要启用；如启用，退回语义按"整体进出"定义 |
 | B4 | **流程版本升级迁移中的未支持项** | ⚠️ `ProcessInstanceMigrationService`（迁移到新版本流程定义）对 moving multi instance executions、进入多实例、带 CallActivity 的子流程内部移动仍在 **upcoming** 清单 —— 本项目因"已发布版本不可变 + 历史单按旧版本跑完"的设计（PRD §5.6）基本用不到该 API | 除非将来要"运行中实例升级到新版本"，否则不受影响；若启用必须先验证 B4 清单 |
 | B5 | **目标节点进入条件不重评估** | ✅ 确认：move 直接启动目标活动，不判断 incoming sequence flow 条件；但目标节点完成后的**出线条件正常重评估** | 无需处置，语义上正好符合"退回后重新审批再按条件推进" |
@@ -269,6 +269,57 @@ runtimeService.deleteProcessInstance(processInstanceId, "WITHDRAW:申请人主�
 | 完成 | 投影置"已办"，写 `completed_at` |
 
 - 保障手段：事件监听（Flowable 的 task/activity 事件）+ 后台一致性扫描（PRD 16.4：定期比对 ACT_RU_TASK 与 `wf_approval_task`）双保险。历史级别至少 `audit`，审计要求高则 `full`。
+
+---
+
+# M0 实测修订（Spike 集成测试 S0–S5，2026-10-28；源码位置 `workflow-server/workflow-spike`，22/22 全绿）
+
+对正文 B0–B6 各节的**运行时实证复核**与新增铁律，BPMN 建模约定、API 包名移位如下。所有结论
+标注了对应的哨兵/集成测试，Flowable 升级后先重跑测试再沿用。
+
+## 1. BPMN 建模铁律（写法层面，直接影响部署成功率）
+
+| # | 铁律 | 实测依据 |
+|---|------|----------|
+| W1 | MI collection 必须用**标准 BPMN 形态** `<loopDataInputRef>` + `<inputDataItem name>`；Flowable 私货 `flowable:collection` **会被 XSD 校验拒部署** | S2 实测（spike-addsign-process 部署被拒） |
+| W2 | MI 实例数必须**节点专属独立变量** cardinality：`<loopCardinality>${wf_n_<activityId>}</loopCardinality>`。同构 cardinality（两节点同字符串）互退时引擎产出**空壳 MI 根**卡死（flowable issue #3944，7.1.0 未修） | S1 哨兵 spike-return-sameconfig；S5 Normalizer N2 规则 |
+| W3 | MI 完成条件 ALL 规则：`<completionCondition>${nrOfCompletedInstances == nrOfInstances}</completionCondition>`；v1 仅**并行 ALL** 规则成立（前/后加签同一 API 温床） | S2 T03/T04/T13 |
+| W4 | MI 成员赋值用 `flowable:assignee="${<inputDataItem.name>}"` 逐实例落人，与 collection 变量名呼应 | S2 实测 |
+| W5 | 审批节点统一多实例建模（D1）：`BpmnNormalizer` 把无 MI 的 UserTask 注入并行 MI + 节点专属 cardinality（申请节点实例数=1 退化），保证全部审批/待办节点同构、退回加签同一 API | S5 T20a/T20b（快照+可部署可执行双锁） |
+
+## 2. 退回口径速查（谁退谁、怎么退）
+
+| 场景 | 合法姿势 | 实测 |
+|------|----------|------|
+| 串行链路互退（含退回申请人） | `moveActivityIdTo(cur, target)` | S1 T05/T06 |
+| 会签（并行 MI）部分完成态整区收回 | **节点级** `moveActivityIdTo(miActivityId, 上游)` | S5 T22 |
+| 普通并行网关区块整体收回 | `moveExecutionsToSingleActivityId(全部子执行含 join 挂起执行, 上游)` | S3 合法正例 |
+| MI 根执行收进 moveExecutions 集合 | ❌ **禁止**（`act_ru_task` FK 删序缺陷，引擎抛 SQL 而非业务错） | S5 实测 |
+| 退回目标=网关 | ❌ 服务层前置拦截（引擎不报错、条件重走重开任务） | S3 T15 |
+| 跨支退回 | ❌ 禁止（幽灵复制 + join 永久挂起） | S3 T14b |
+
+## 3. 撤回与投影（T07/T12 实测锚点）
+
+- 撤回五项核对全绿：运行实例/任务/执行清零、`HistoricProcessInstance` 带 endTime+deleteReason、
+  历史任务全部留痕、旧任务句柄续操作抛 `FlowableObjectNotFoundException`（S4 T07）。
+- 投影雏形可行：引擎级事件监听（`TASK_CREATED/TASK_COMPLETED/ENTITY_DELETED` + `PROCESS_COMPLETED/PROCESS_CANCELLED`）
+  → 内存投影与引擎全程对账一致；**ENTITY_DELETED 对已完成任务不折叠 REMOVED**（保历史语义）。
+  实现已抽为 `InMemoryTaskProjection`（S4/S5 共用），M3 平移 MySQL `wf_approval_task` 时沿用同一事件语义（S4 T12、S5 T21–T23）。
+
+## 4. Flowable 7.1.0 API 包名移位备忘（6.x 写法编译不过）
+
+| 类型 | 6.x 位置 | 7.1.0 位置 |
+|------|----------|-----------|
+| `HistoryLevel` | `org.flowable.engine.history` | `org.flowable.common.engine.impl.history` |
+| 事件体系（`FlowableEvent/FlowableEngineEntityEvent/FlowableEngineEventType/FlowableEventListener`） | `org.flowable.engine.delegate.event` | `org.flowable.common.engine.api.delegate.event` |
+| `FlowableEventListener` 契约 | onEvent + isFailOnException 两个方法 | **新增抽象方法** `isFireOnTransactionLifecycleEvent()` / `getOnTransaction()`（无横切需求时返回 false/null） |
+| `BpmnXMLConverter` | `org.flowable.bpmn` | `org.flowable.bpmn.converter` |
+| `HistoricTaskInstance` | — | `org.flowable.task.api.history`（不在 engine 包） |
+
+## 5. 测试基线
+
+`mvn -pl workflow-spike test`：22/22 全绿（S0 冒烟 3 + S1 退回 4 + S2 加签 3 + S3 边界 4 + S4 撤回/投影 3 +
+S5 规一化 2 + 采购贯穿 3）。数据库 `workflow_spike`（本地 MySQL80），凭证走 `WF_DB_PASSWORD` 环境变量。
 
 ---
 
