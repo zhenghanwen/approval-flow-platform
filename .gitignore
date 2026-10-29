@@ -26,3 +26,4 @@ node_modules/
 figma-local-project/
 opencode.jsonc
 opencode.json
+.claude/
