@@ -155,17 +155,27 @@ public class ApprovalSubmissionService {
         if (formVersion == null || !"PUBLISHED".equals(formVersion.getStatus())) {
             throw new ServiceException("表单版本不存在或未发布");
         }
-        List<WfWorkflowDefinition> workflows = workflowDefinitionMapper.selectByApprovalDefinition(approvalDefinitionId);
-        WfWorkflowDefinition workflowDef = workflows.stream()
-            .filter(w -> "PUBLISHED".equals(w.getStatus()))
-            .findFirst().orElse(null);
-        if (workflowDef == null) {
-            throw new ServiceException("审批类型未绑定已发布流程");
+        // 流程版本：优先使用审批类型显式绑定的流程版本（currentFlowVersionId，审批类型→流程 权威方向）；
+        // 兼容历史数据：未显式绑定或绑定版本缺失时，回退到按 approval_definition_id 反查首个已发布流程。
+        WfWorkflowVersion workflowVersion = null;
+        if (approvalDef.getCurrentFlowVersionId() != null) {
+            WfWorkflowVersion bound = workflowVersionMapper.selectById(approvalDef.getCurrentFlowVersionId());
+            if (bound != null && "PUBLISHED".equals(bound.getStatus())) {
+                workflowVersion = bound;
+            }
         }
-        WfWorkflowVersion workflowVersion = workflowVersionMapper.selectByWorkflowAndVersion(
-            workflowDef.getId(), workflowDef.getCurrentVersion());
         if (workflowVersion == null) {
-            throw new ServiceException("流程版本不存在: " + workflowDef.getCurrentVersion());
+            List<WfWorkflowDefinition> workflows = workflowDefinitionMapper.selectByApprovalDefinition(approvalDefinitionId);
+            WfWorkflowDefinition workflowDef = workflows.stream()
+                .filter(w -> "PUBLISHED".equals(w.getStatus()))
+                .findFirst().orElse(null);
+            if (workflowDef != null) {
+                workflowVersion = workflowVersionMapper.selectByWorkflowAndVersion(
+                    workflowDef.getId(), workflowDef.getCurrentVersion());
+            }
+        }
+        if (workflowVersion == null) {
+            throw new ServiceException("审批类型未绑定已发布流程");
         }
 
         // 3. 表单校验（必填 + 类型）

@@ -52,13 +52,13 @@ public class WorkflowDefinitionService {
 
     /**
      * 创建流程定义（workflow_code 唯一）。
+     *
+     * <p>流程独立于审批类型：approvalDefinitionId 为可选关联（兼容从审批类型页创建流程的链路），
+     * 流程管理侧新建流程不再要求挂接审批类型。</p>
      */
     @Transactional(rollbackFor = Exception.class)
     public WfWorkflowDefinition createDefinition(String approvalDefinitionId, String workflowCode,
                                                  String workflowName, String createdBy) {
-        if (approvalDefinitionId == null || approvalDefinitionId.isBlank()) {
-            throw new ServiceException("流程必须挂接所属审批类型(approvalDefinitionId)");
-        }
         if (workflowCode == null || workflowCode.isBlank()) {
             throw new ServiceException("流程编码不能为空");
         }

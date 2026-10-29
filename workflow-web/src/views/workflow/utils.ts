@@ -5,7 +5,7 @@ import type {
   WfApprovalInstance,
   WfApprovalTask
 } from '@/types'
-import { listApprovalDefinition } from '@/api/workflow/definition'
+import { getApprovalDefinition, listApprovalDefinition } from '@/api/workflow/definition'
 import { getApproval, getApprovalTimeline } from '@/api/workflow/approval'
 import { listWorkflow, listWorkflowVersion } from '@/api/workflow/workflow'
 import request from '@/utils/request'
@@ -290,6 +290,20 @@ export function parseNodeNames(configJson?: string): Map<string, string> {
 export async function loadFlowNodeNames(approvalDefinitionId?: string): Promise<Map<string, string>> {
   if (!approvalDefinitionId) return new Map()
   try {
+    // 权威方向：审批类型 → 流程版本（currentFlowVersionId）。流程独立于审批类型后
+    // 反查可能失效，先在全部流程中定位绑定的流程版本。
+    const defRes = await getApprovalDefinition(approvalDefinitionId)
+    const flowVersionId = defRes.data?.currentFlowVersionId
+    if (flowVersionId) {
+      const workflowRes = await listWorkflow()
+      const workflows = workflowRes.data || []
+      for (const workflow of workflows) {
+        const versionRes = await listWorkflowVersion(workflow.id)
+        const hit = (versionRes.data || []).find(v => v.id === flowVersionId)
+        if (hit?.configJson) return parseNodeNames(hit.configJson)
+      }
+    }
+    // 兼容历史：按 approval_definition_id 反查首个已发布流程
     const res = await listWorkflow({ approvalDefinitionId })
     const workflows = (res.data || []).filter(item => item.approvalDefinitionId === approvalDefinitionId)
     const definition = workflows.find(item => item.status === 'PUBLISHED') || workflows[0]

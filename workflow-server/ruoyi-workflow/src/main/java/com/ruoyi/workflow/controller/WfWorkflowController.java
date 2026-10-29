@@ -30,7 +30,8 @@ public class WfWorkflowController extends BaseController {
     }
 
     /**
-     * 请求体：{ approvalDefinitionId, workflowCode, workflowName, bpmnXml?, configJson? }
+     * 请求体：{ approvalDefinitionId?, workflowCode, workflowName, bpmnXml?, configJson? }
+     * approvalDefinitionId 可选：流程管理侧新建流程不再要求挂接审批类型。
      */
     public static class WorkflowRequest {
         public String approvalDefinitionId;

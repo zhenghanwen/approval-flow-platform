@@ -49,16 +49,6 @@
         <el-form-item label="流程名称" prop="workflowName">
           <el-input v-model="createDialog.form.workflowName" placeholder="如：采购审批流程" maxlength="50" />
         </el-form-item>
-        <el-form-item label="审批类型" prop="approvalDefinitionId">
-          <el-select v-model="createDialog.form.approvalDefinitionId" placeholder="请选择所属审批类型" style="width: 100%">
-            <el-option
-              v-for="opt in approvalOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-        </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -103,8 +93,7 @@
 
 <script setup lang="ts" name="WorkflowFlows">
 import { addWorkflow, listWorkflow, listWorkflowVersion } from '@/api/workflow/workflow'
-import { listApprovalDefinition } from '@/api/workflow/definition'
-import type { WfApprovalDefinition, WfWorkflowDefinition, WfWorkflowVersion } from '@/types'
+import type { WfWorkflowDefinition, WfWorkflowVersion } from '@/types'
 
 const router = useRouter()
 const { proxy } = getCurrentInstance() as any
@@ -113,18 +102,14 @@ const loading = ref(true)
 const saving = ref(false)
 const rows = ref<WfWorkflowDefinition[]>([])
 
-/** 新建流程可选审批类型（仅已发布，需可挂流程） */
-const approvalOptions = ref<Array<{ label: string; value: string }>>([])
-
 const createRef = ref()
 const createDialog = reactive({
   visible: false,
-  form: { workflowCode: '', workflowName: '', approvalDefinitionId: '' }
+  form: { workflowCode: '', workflowName: '' }
 })
 const createRules = {
   workflowCode: [{ required: true, message: '请输入流程编码', trigger: 'blur' }],
-  workflowName: [{ required: true, message: '请输入流程名称', trigger: 'blur' }],
-  approvalDefinitionId: [{ required: true, message: '请选择所属审批类型', trigger: 'change' }]
+  workflowName: [{ required: true, message: '请输入流程名称', trigger: 'blur' }]
 }
 
 const versionDialog = reactive({
@@ -170,22 +155,8 @@ function openCreate() {
 function resetCreate() {
   createDialog.form.workflowCode = ''
   createDialog.form.workflowName = ''
-  createDialog.form.approvalDefinitionId = ''
   saving.value = false
   createRef.value?.resetFields()
-}
-
-/** 加载可选审批类型（含编码，便于选择） */
-async function loadApprovalOptions() {
-  try {
-    const res = await listApprovalDefinition()
-    approvalOptions.value = (res.data || []).map((item: WfApprovalDefinition) => ({
-      label: `${item.approvalCode || ''} ${item.approvalName || ''}`.trim() || item.id,
-      value: item.id
-    }))
-  } catch {
-    approvalOptions.value = []
-  }
 }
 
 async function handleCreate() {
@@ -195,13 +166,11 @@ async function handleCreate() {
   try {
     const res = await addWorkflow({
       workflowCode: createDialog.form.workflowCode.trim().toUpperCase(),
-      workflowName: createDialog.form.workflowName,
-      approvalDefinitionId: createDialog.form.approvalDefinitionId
+      workflowName: createDialog.form.workflowName
     })
     proxy.$modal.msgSuccess('创建成功')
     // 先取出跳转所需表单值，避免对话框关闭动画期间 @closed 触发 resetCreate 清空表单
     const jumpName = createDialog.form.workflowName
-    const jumpDefinitionId = createDialog.form.approvalDefinitionId
     createDialog.visible = false
     await getList()
     // 新建后直接进入流程设计器编排（对齐「新建流程 → 进流程设计器」）
@@ -209,7 +178,7 @@ async function handleCreate() {
     if (id) {
       router.push({
         path: '/workflow/designer',
-        query: { workflowId: id, name: jumpName, definitionId: jumpDefinitionId }
+        query: { workflowId: id, name: jumpName }
       })
     }
   } finally {
@@ -241,7 +210,6 @@ async function openVersions(row: WfWorkflowDefinition) {
 }
 
 getList()
-loadApprovalOptions()
 </script>
 
 <style scoped lang="scss">

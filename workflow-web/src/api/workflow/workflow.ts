@@ -44,9 +44,9 @@ export function publishWorkflow(id: string, payload: { bpmnXml: string; configJs
   })
 }
 
-/** 新建流程定义 */
+/** 新建流程定义（approvalDefinitionId 可选：流程管理侧新建流程不再绑定审批类型） */
 export function addWorkflow(payload: {
-  approvalDefinitionId: string
+  approvalDefinitionId?: string
   workflowCode: string
   workflowName: string
 }) {
