@@ -199,6 +199,9 @@ async function handleCreate() {
       approvalDefinitionId: createDialog.form.approvalDefinitionId
     })
     proxy.$modal.msgSuccess('创建成功')
+    // 先取出跳转所需表单值，避免对话框关闭动画期间 @closed 触发 resetCreate 清空表单
+    const jumpName = createDialog.form.workflowName
+    const jumpDefinitionId = createDialog.form.approvalDefinitionId
     createDialog.visible = false
     await getList()
     // 新建后直接进入流程设计器编排（对齐「新建流程 → 进流程设计器」）
@@ -206,7 +209,7 @@ async function handleCreate() {
     if (id) {
       router.push({
         path: '/workflow/designer',
-        query: { workflowId: id, name: createDialog.form.workflowName, definitionId: createDialog.form.approvalDefinitionId }
+        query: { workflowId: id, name: jumpName, definitionId: jumpDefinitionId }
       })
     }
   } finally {

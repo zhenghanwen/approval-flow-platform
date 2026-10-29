@@ -3,9 +3,11 @@ package com.ruoyi.workflow.service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -81,6 +83,9 @@ public class FormDefinitionService {
     /**
      * 保存一个 DRAFT 版本草稿到 MongoDB（不发布）。返回版本实体。
      *
+     * <p>草稿可反复覆盖（SOP P02）：若表单已存在未发布的 DRAFT 版本，则复用该版本号，
+     * 覆盖其 Mongo schema 快照并同步 schema_hash；否则新建一个版本。</p>
+     *
      * @param formId   表单ID
      * @param schema   schema JSON 对象
      * @param operator 操作人
@@ -91,8 +96,27 @@ public class FormDefinitionService {
         if (!STATUS_DRAFT.equals(definition.getStatus()) && !STATUS_PUBLISHED.equals(definition.getStatus())) {
             throw new ServiceException("表单状态不允许编辑: " + definition.getStatus());
         }
-        int nextVersion = nextVersionNo(formId);
         String schemaHash = hashSchema(schema);
+
+        // 已有未发布草稿则覆盖（草稿可反复覆盖），否则新建版本
+        WfFormVersion existingDraft = versionMapper.selectByFormId(formId).stream()
+            .filter(v -> STATUS_DRAFT.equals(v.getStatus()))
+            .max(Comparator.comparing(WfFormVersion::getVersionNo))
+            .orElse(null);
+
+        if (existingDraft != null) {
+            FormSchemaVersionDoc doc = schemaRepository.findById(existingDraft.getMongoSchemaId())
+                .orElseThrow(() -> new ServiceException("MongoDB 版本快照缺失: " + existingDraft.getMongoSchemaId()));
+            doc.setSchema(schema);
+            doc.setSchemaHash(schemaHash);
+            doc.setCreatedAt(new Date());
+            schemaRepository.save(doc);
+            existingDraft.setSchemaHash(schemaHash);
+            versionMapper.update(existingDraft);
+            return existingDraft;
+        }
+
+        int nextVersion = nextVersionNo(formId);
         String versionId = UUID.randomUUID().toString();
 
         FormSchemaVersionDoc doc = new FormSchemaVersionDoc();
@@ -197,11 +221,15 @@ public class FormDefinitionService {
     }
 
     /**
-     * 计算下一个版本号：已发布最大版本 + 1，无发布则 1。
+     * 计算下一个版本号：表单已存在的最大版本号 + 1，无版本则 1。
+     * <p>与草稿覆盖逻辑配合：仅当表单没有任何 DRAFT 版本（无草稿可覆盖）时才新建版本。</p>
      */
     private int nextVersionNo(String formId) {
-        Integer maxPublished = versionMapper.selectMaxPublishedVersion(formId);
-        return (maxPublished == null ? 0 : maxPublished) + 1;
+        return versionMapper.selectByFormId(formId).stream()
+            .map(WfFormVersion::getVersionNo)
+            .filter(Objects::nonNull)
+            .max(Integer::compareTo)
+            .orElse(0) + 1;
     }
 
     /**

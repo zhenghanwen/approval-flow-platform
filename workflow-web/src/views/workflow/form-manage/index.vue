@@ -60,32 +60,13 @@
       </template>
     </el-dialog>
 
-    <!-- 表单设计（schema 编辑） -->
-    <el-dialog
+    <!-- 可视化表单设计器（拖拽式） -->
+    <FormDesigner
       v-model="designDialog.visible"
-      :title="`表单设计 - ${designDialog.rowName}`"
-      width="640px"
-      append-to-body
-      @closed="designDialog.schemaText = ''"
-    >
-      <p class="wf-schema-tip">
-        编辑表单字段 JSON（字段结构：{ field, label, type, required, placeholder, options }）。保存草稿后可在版本管理中发布。
-      </p>
-      <el-input
-        v-model="designDialog.schemaText"
-        type="textarea"
-        :rows="14"
-        class="wf-schema-editor"
-        placeholder="请输入表单 schema JSON"
-      />
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button :loading="designDialog.saving" @click="handleSaveDraft">保存草稿</el-button>
-          <el-button type="primary" :loading="designDialog.publishing" @click="handleSaveAndPublish">保存并发布</el-button>
-          <el-button @click="designDialog.visible = false">取 消</el-button>
-        </div>
-      </template>
-    </el-dialog>
+      :form-id="designDialog.rowId"
+      :form-name="designDialog.rowName"
+      @saved="getList"
+    />
 
     <!-- 版本管理 -->
     <el-dialog
@@ -122,8 +103,8 @@
 </template>
 
 <script setup lang="ts" name="WorkflowForms">
-import { createForm, getFormSchema, listForm, listFormVersion, publishFormVersion, saveFormSchemaDraft } from '@/api/workflow/form'
-import { extractSchemaFields } from '../schema'
+import FormDesigner from '../components/FormDesigner.vue'
+import { createForm, listForm, listFormVersion, publishFormVersion } from '@/api/workflow/form'
 import type { WfFormDefinition, WfFormVersion } from '@/types'
 
 const { proxy } = getCurrentInstance() as any
@@ -145,10 +126,7 @@ const createRules = {
 const designDialog = reactive({
   visible: false,
   rowId: '',
-  rowName: '',
-  schemaText: '',
-  saving: false,
-  publishing: false
+  rowName: ''
 })
 
 const versionDialog = reactive({
@@ -158,14 +136,6 @@ const versionDialog = reactive({
   loading: false,
   rows: [] as WfFormVersion[]
 })
-
-/** 无已发布 schema 时用于新建草稿的默认模板（对齐 fields.ts 字段结构） */
-const DEFAULT_SCHEMA = [
-  { field: 'title', label: '审批标题', type: 'text', required: true, placeholder: '请输入审批标题' },
-  { field: 'reason', label: '申请事由', type: 'textarea', required: true, placeholder: '请填写申请事由' },
-  { field: 'amount', label: '金额', type: 'money', required: false, placeholder: '请输入金额' },
-  { field: 'remark', label: '备注', type: 'text', required: false, placeholder: '选填' }
-]
 
 function statusLabel(status?: string) {
   if (status === 'PUBLISHED') return '已发布'
@@ -226,66 +196,7 @@ async function handleCreate() {
 async function openDesign(row: WfFormDefinition) {
   designDialog.rowId = row.id
   designDialog.rowName = row.formName || row.formCode || row.id
-  let fields: any[] = []
-  try {
-    const res = await getFormSchema(row.id)
-    fields = extractSchemaFields((res as any)?.data)
-  } catch {
-    fields = []
-  }
-  designDialog.schemaText = JSON.stringify(fields.length ? fields : DEFAULT_SCHEMA, null, 2)
   designDialog.visible = true
-}
-
-function parseSchemaText(): any[] | null {
-  try {
-    const parsed = JSON.parse(designDialog.schemaText)
-    if (!Array.isArray(parsed)) {
-      proxy.$modal.msgError('schema 必须是字段数组 JSON')
-      return null
-    }
-    return parsed
-  } catch (error: any) {
-    proxy.$modal.msgError('schema JSON 格式错误：' + String(error?.message || error))
-    return null
-  }
-}
-
-async function handleSaveDraft() {
-  const parsed = parseSchemaText()
-  if (!parsed) return
-  designDialog.saving = true
-  try {
-    await saveFormSchemaDraft(designDialog.rowId, parsed)
-    proxy.$modal.msgSuccess('草稿已保存')
-    await getList()
-  } catch {
-    /* 响应拦截器已提示 */
-  } finally {
-    designDialog.saving = false
-  }
-}
-
-async function handleSaveAndPublish() {
-  const parsed = parseSchemaText()
-  if (!parsed) return
-  designDialog.publishing = true
-  try {
-    const res = await saveFormSchemaDraft(designDialog.rowId, parsed)
-    const versionId = (res as any)?.data?.id
-    if (!versionId) {
-      proxy.$modal.msgError('保存草稿未返回版本号，发布失败')
-      return
-    }
-    await publishFormVersion(designDialog.rowId, versionId)
-    proxy.$modal.msgSuccess('已保存并发布')
-    designDialog.visible = false
-    await getList()
-  } catch {
-    /* 响应拦截器已提示 */
-  } finally {
-    designDialog.publishing = false
-  }
 }
 
 async function openVersions(row: WfFormDefinition) {
@@ -395,19 +306,5 @@ getList()
 
 .wf-light {
   color: #c0c4cc;
-}
-
-.wf-schema-tip {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #909399;
-}
-
-.wf-schema-editor {
-  :deep(textarea) {
-    font-family: Consolas, Monaco, 'Courier New', monospace;
-    font-size: 13px;
-  }
 }
 </style>

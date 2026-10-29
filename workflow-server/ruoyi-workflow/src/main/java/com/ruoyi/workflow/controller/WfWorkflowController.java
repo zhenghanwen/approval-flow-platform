@@ -57,7 +57,8 @@ public class WfWorkflowController extends BaseController {
     @PostMapping("/{workflowId}/validate")
     public AjaxResult validate(@PathVariable String workflowId, @RequestBody WorkflowRequest request) {
         String normalized = workflowDefinitionService.validate(workflowId, request.bpmnXml);
-        return success(normalized);
+        // 显式装箱为 Object，避免命中 success(String message) 重载（否则 XML 被放到 msg 而非 data）
+        return success((Object) normalized);
     }
 
     /**

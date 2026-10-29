@@ -24,3 +24,5 @@ node_modules/
 .env
 *.env
 figma-local-project/
+opencode.jsonc
+opencode.json

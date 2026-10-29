@@ -3,18 +3,28 @@ package com.ruoyi.workflow.bpmn;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
 
 import org.flowable.bpmn.converter.BpmnXMLConverter;
 import org.flowable.bpmn.model.BpmnModel;
+import org.flowable.bpmn.model.EndEvent;
+import org.flowable.bpmn.model.ExclusiveGateway;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.FlowNode;
 import org.flowable.bpmn.model.MultiInstanceLoopCharacteristics;
+import org.flowable.bpmn.model.ParallelGateway;
 import org.flowable.bpmn.model.Process;
 import org.flowable.bpmn.model.SequenceFlow;
 import org.flowable.bpmn.model.StartEvent;
@@ -51,6 +61,10 @@ public class BpmnValidationService {
 
     /** 最大嵌套深度（网关串联层级，防恶意深链）。 */
     private static final int MAX_DEPTH = 10;
+
+    /** 设计器画布舞台尺寸（与 workflow-web designer/index.vue STAGE_WIDTH/STAGE_HEIGHT 对齐）。 */
+    private static final int STAGE_WIDTH = 1000;
+    private static final int STAGE_HEIGHT = 700;
 
     /** 会签/或签/比例 completionRule 取值。 */
     public static final String RULE_ALL = "ALL";
@@ -357,5 +371,179 @@ public class BpmnValidationService {
         } catch (Exception e) {
             throw new ServiceException("快照诊断失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 发布前补全画布信息：configJson 若缺 layout（API 直接发布路径），
+     * 从规一化 BPMN 反推节点布局与连线，供前端设计器回显（layout 为后端忽略、仅回显用的元数据）。
+     * 设计器发布路径（已有 layout）原样返回。
+     */
+    @SuppressWarnings("unchecked")
+    public String ensureLayout(String configJson, String normalizedXml) {
+        Map<String, Object> root = new LinkedHashMap<>();
+        if (configJson != null && !configJson.isBlank()) {
+            try {
+                Object parsed = objectMapper.readValue(configJson, Object.class);
+                if (parsed instanceof Map<?, ?> map) {
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        if (entry.getKey() instanceof String key) {
+                            root.put(key, entry.getValue());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new ServiceException("节点配置 JSON 解析失败: " + e.getMessage());
+            }
+        }
+        if (root.get("layout") instanceof Map<?, ?> existing && !existing.isEmpty()) {
+            return configJson; // 设计器发布路径已有布局，原样保留
+        }
+        BpmnModel model = parse(normalizedXml);
+        Layout layout = buildLayout(model);
+        root.put("layout", layout.nodes);
+        root.put("edges", layout.edges);
+        try {
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            throw new ServiceException("流程配置序列化失败: " + e.getMessage());
+        }
+    }
+
+    private record Layout(Map<String, Object> nodes, List<Map<String, Object>> edges) {
+    }
+
+    /**
+     * 从 BPMN 模型反推自上而下的分层布局（每行内居中排布），并提取全部连线。
+     */
+    private Layout buildLayout(BpmnModel model) {
+        Process process = model.getProcesses().get(0);
+        Map<String, FlowNode> nodeById = new LinkedHashMap<>();
+        List<SequenceFlow> flows = new ArrayList<>();
+        for (FlowElement fe : process.getFlowElements()) {
+            if (fe instanceof FlowNode fn) {
+                nodeById.put(fn.getId(), fn);
+            } else if (fe instanceof SequenceFlow sf) {
+                flows.add(sf);
+            }
+        }
+
+        // 申请节点：起始事件直达的 UserTask（与 normalize 判定一致）
+        Set<String> applicantIds = new java.util.HashSet<>();
+        for (FlowElement fe : process.getFlowElements()) {
+            if (fe instanceof StartEvent start) {
+                for (SequenceFlow sf : start.getOutgoingFlows()) {
+                    if (sf.getTargetFlowElement() instanceof UserTask ut) {
+                        applicantIds.add(ut.getId());
+                    }
+                }
+            }
+        }
+
+        // 拓扑分层：从起始事件出发，level = 最长入路径深度（环路保护，更深路径重新入队传播）
+        Map<String, Integer> level = new HashMap<>();
+        Deque<String> queue = new ArrayDeque<>();
+        for (FlowNode fn : nodeById.values()) {
+            if (fn instanceof StartEvent) {
+                level.put(fn.getId(), 0);
+                queue.offer(fn.getId());
+            }
+        }
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            FlowNode node = nodeById.get(current);
+            if (node == null) {
+                continue;
+            }
+            int currentLevel = level.getOrDefault(current, 0);
+            for (SequenceFlow sf : node.getOutgoingFlows()) {
+                if (!(sf.getTargetFlowElement() instanceof FlowNode target)) {
+                    continue;
+                }
+                int nextLevel = currentLevel + 1;
+                Integer known = level.get(target.getId());
+                if (known == null || nextLevel > known) {
+                    level.put(target.getId(), nextLevel);
+                    queue.offer(target.getId());
+                }
+            }
+        }
+
+        // 按层分行（不可达节点追加到最末一行，白名单校验下不应出现）
+        Map<Integer, List<String>> rows = new TreeMap<>();
+        for (String id : nodeById.keySet()) {
+            int l = level.getOrDefault(id, -1);
+            if (l < 0) {
+                l = rows.isEmpty() ? 0 : rows.keySet().stream().max(Integer::compareTo).orElse(0) + 1;
+            }
+            rows.computeIfAbsent(l, k -> new ArrayList<>()).add(id);
+        }
+
+        // 行内居中、纵向逐行下移
+        final int nodeSpan = 160; // 节点横向占位（覆盖最宽审批节点 132 + 间距）
+        final int gapX = 80;
+        final int gapY = 130;
+        final int marginX = 60;
+        final int marginY = 60;
+        Map<String, Object> layoutNodes = new LinkedHashMap<>();
+        int rowIndex = 0;
+        for (List<String> row : rows.values()) {
+            double totalWidth = row.size() * nodeSpan + (row.size() - 1) * gapX;
+            double startX = Math.max(marginX, (STAGE_WIDTH - totalWidth) / 2);
+            double y = marginY + rowIndex * gapY;
+            for (int i = 0; i < row.size(); i++) {
+                String id = row.get(i);
+                FlowNode fn = nodeById.get(id);
+                Map<String, Object> cfg = new LinkedHashMap<>();
+                cfg.put("name", (fn.getName() != null && !fn.getName().isBlank()) ? fn.getName() : id);
+                cfg.put("type", mapDesignerType(fn));
+                cfg.put("x", (int) Math.round(startX + i * (nodeSpan + gapX)));
+                cfg.put("y", (int) Math.round(y));
+                cfg.put("isApplicant", applicantIds.contains(id));
+                layoutNodes.put(id, cfg);
+            }
+            rowIndex++;
+        }
+
+        // 连线（label 取条件表达式原文，去掉 ${...} 壳）
+        List<Map<String, Object>> edgeList = new ArrayList<>();
+        for (int i = 0; i < flows.size(); i++) {
+            SequenceFlow sf = flows.get(i);
+            Map<String, Object> edge = new LinkedHashMap<>();
+            edge.put("id", (sf.getId() != null && !sf.getId().isBlank()) ? sf.getId() : "edge_" + (i + 1));
+            edge.put("from", sf.getSourceRef());
+            edge.put("to", sf.getTargetRef());
+            String condition = sf.getConditionExpression();
+            if (condition != null && !condition.isBlank()) {
+                edge.put("label", stripExpression(condition));
+            }
+            edgeList.add(edge);
+        }
+        return new Layout(layoutNodes, edgeList);
+    }
+
+    /** 节点类型映射到前端设计器 NodeType。 */
+    private String mapDesignerType(FlowNode fn) {
+        if (fn instanceof StartEvent) {
+            return "start";
+        }
+        if (fn instanceof EndEvent) {
+            return "end";
+        }
+        if (fn instanceof ParallelGateway) {
+            return "parallel";
+        }
+        if (fn instanceof ExclusiveGateway) {
+            return "exclusive";
+        }
+        return "approval"; // 白名单内其余即 UserTask
+    }
+
+    /** 去掉条件表达式 ${...} 壳，保留可读文案（如 ${amount >= 1000} → amount >= 1000）。 */
+    private String stripExpression(String expression) {
+        String s = expression.trim();
+        if (s.startsWith("${") && s.endsWith("}")) {
+            s = s.substring(2, s.length() - 1);
+        }
+        return s.trim();
     }
 }

@@ -101,6 +101,9 @@ public class WorkflowDefinitionService {
         // 1. 校验 + 规一化（门禁，completionRule 从节点配置读取）
         String normalizedXml = validationService.validateAndNormalize(bpmnXml, configJson);
 
+        // 1.1 补全画布信息：API 直接发布（configJson 缺 layout）时从 BPMN 反推布局，供前端设计器回显
+        String storedConfig = validationService.ensureLayout(configJson, normalizedXml);
+
         // 2. 部署至 Flowable
         Deployment deployment = repositoryService.createDeployment()
             .addString("workflow-" + definition.getWorkflowCode() + "-v"
@@ -124,7 +127,7 @@ public class WorkflowDefinitionService {
         version.setProcessDefinitionId(pd.getId());
         version.setProcessDefinitionKey(pd.getKey());
         version.setBpmnHash(hashXml(normalizedXml));
-        version.setConfigJson(configJson);
+        version.setConfigJson(storedConfig);
         version.setStatus(VERSION_STATUS_PUBLISHED);
         version.setPublishedAt(new Date());
         version.setPublishedBy(operator);
