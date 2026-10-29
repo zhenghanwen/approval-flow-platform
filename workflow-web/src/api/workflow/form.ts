@@ -10,6 +10,32 @@ export function listForm(query?: Record<string, any>): Promise<AjaxResult<WfForm
   })
 }
 
+/** 新建表单定义（P10 表单管理） */
+export function createForm(payload: { formCode: string; formName: string }): Promise<AjaxResult<WfFormDefinition>> {
+  return request({
+    url: '/workflow/forms',
+    method: 'post',
+    data: payload
+  })
+}
+
+/** 保存表单版本草稿（schema 落 MongoDB，不发布） */
+export function saveFormSchemaDraft(formId: string, schema: any): Promise<AjaxResult<WfFormVersion>> {
+  return request({
+    url: `/workflow/forms/${formId}/versions/draft`,
+    method: 'post',
+    data: schema
+  })
+}
+
+/** 发布表单版本（快照不可变） */
+export function publishFormVersion(formId: string, versionId: string): Promise<AjaxResult<WfFormVersion>> {
+  return request({
+    url: `/workflow/forms/${formId}/versions/${versionId}/publish`,
+    method: 'put'
+  })
+}
+
 /** 表单版本列表 */
 export function listFormVersion(formId: string): Promise<AjaxResult<WfFormVersion[]>> {
   return request({

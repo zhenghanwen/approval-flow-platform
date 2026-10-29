@@ -114,7 +114,12 @@ export interface WfFormDefinition {
   formName?: string
   description?: string
   currentVersionId?: string
+  /** 当前发布版本号 */
+  currentVersion?: number
   status?: string
+  createdBy?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 /** 表单版本 */
@@ -122,9 +127,12 @@ export interface WfFormVersion {
   id: string
   formId?: string
   versionNo?: number
+  mongoSchemaId?: string
   schemaHash?: string
   status?: string
   publishedAt?: string
+  publishedBy?: string
+  createdAt?: string
 }
 
 /** 表单数据 */

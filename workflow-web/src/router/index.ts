@@ -157,6 +157,30 @@ export const constantRoutes = [
     ]
   },
   {
+    path: '/workflow-forms',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/workflow/form-manage/index.vue'),
+        name: 'WorkflowForms',
+        meta: { title: '表单管理', icon: 'documentation' }
+      }
+    ]
+  },
+  {
+    path: '/workflow-flows',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/workflow/flow-manage/index.vue'),
+        name: 'WorkflowFlows',
+        meta: { title: '流程管理', icon: 'link' }
+      }
+    ]
+  },
+  {
     path: '/workflow-type',
     component: Layout,
     children: [
