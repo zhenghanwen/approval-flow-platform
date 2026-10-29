@@ -56,6 +56,9 @@ public class WorkflowDefinitionService {
     @Transactional(rollbackFor = Exception.class)
     public WfWorkflowDefinition createDefinition(String approvalDefinitionId, String workflowCode,
                                                  String workflowName, String createdBy) {
+        if (approvalDefinitionId == null || approvalDefinitionId.isBlank()) {
+            throw new ServiceException("流程必须挂接所属审批类型(approvalDefinitionId)");
+        }
         if (workflowCode == null || workflowCode.isBlank()) {
             throw new ServiceException("流程编码不能为空");
         }
