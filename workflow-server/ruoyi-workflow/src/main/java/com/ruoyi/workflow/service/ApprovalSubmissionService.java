@@ -79,6 +79,7 @@ public class ApprovalSubmissionService {
     private final RepositoryService repositoryService;
     private final ObjectMapper objectMapper;
     private final OutboxEventService outboxEventService;
+    private final ApprovalCcService approvalCcService;
 
     public ApprovalSubmissionService(WfApprovalDefinitionMapper approvalDefinitionMapper,
                                      WfWorkflowDefinitionMapper workflowDefinitionMapper,
@@ -96,7 +97,8 @@ public class ApprovalSubmissionService {
                                      TaskService taskService,
                                      RepositoryService repositoryService,
                                      ObjectMapper objectMapper,
-                                     OutboxEventService outboxEventService) {
+                                     OutboxEventService outboxEventService,
+                                     ApprovalCcService approvalCcService) {
         this.approvalDefinitionMapper = approvalDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowVersionMapper = workflowVersionMapper;
@@ -114,6 +116,7 @@ public class ApprovalSubmissionService {
         this.repositoryService = repositoryService;
         this.objectMapper = objectMapper;
         this.outboxEventService = outboxEventService;
+        this.approvalCcService = approvalCcService;
     }
 
     /**
@@ -127,12 +130,13 @@ public class ApprovalSubmissionService {
      * @param applicantName        申请人姓名快照
      * @param applicantDeptId      申请人部门ID
      * @param idempotencyKey       幂等键
+     * @param ccUserIds            抄送人ID列表（可为空）
      * @return 审批单
      */
     @Transactional(rollbackFor = Exception.class)
     public WfApprovalInstance submit(String approvalDefinitionId, String formVersionId, String title,
                                      Map<String, Object> formData, String applicantUserId, String applicantName,
-                                     String applicantDeptId, String idempotencyKey) {
+                                     String applicantDeptId, String idempotencyKey, List<String> ccUserIds) {
         // 1. 幂等校验（PRD 7.3）：同一用户同一幂等键已处理则返回已存在结果
         WfApprovalOperation existing = operationMapper.selectByOperatorAndKey(applicantUserId, idempotencyKey);
         if (existing != null && "SUCCESS".equals(existing.getOperationStatus())) {
@@ -209,6 +213,9 @@ public class ApprovalSubmissionService {
         instance.setVersion(0);
         instance.setCreatedAt(new Date());
         approvalInstanceMapper.insert(instance);
+
+        // 6.1 抄送记录（P7：提交时指定抄送人，被抄送人可在「抄送我的」查看）
+        approvalCcService.addCc(instance.getId(), applicantUserId, ccUserIds);
 
         // 7. 启动 Flowable 流程，注入节点审批人集合变量（collection 驱动多实例）
         Map<String, Object> variables = new HashMap<>();

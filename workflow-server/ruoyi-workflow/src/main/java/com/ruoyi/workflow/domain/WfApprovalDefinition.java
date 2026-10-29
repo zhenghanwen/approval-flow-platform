@@ -42,6 +42,9 @@ public class WfApprovalDefinition {
     /** 状态：DRAFT / PUBLISHED / DISABLED */
     private String status;
 
+    /** 删除标志：0 正常 / 1 已删除（软删除，P8） */
+    private String delFlag;
+
     /** 创建人 */
     private String createdBy;
 
@@ -139,6 +142,14 @@ public class WfApprovalDefinition {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getDelFlag() {
+        return delFlag;
+    }
+
+    public void setDelFlag(String delFlag) {
+        this.delFlag = delFlag;
     }
 
     public String getCreatedBy() {

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.workflow.mapper.WfApprovalCcMapper">
+
+    <resultMap type="WfApprovalCc" id="WfApprovalCcResult">
+        <id     property="id"                  column="id"/>
+        <result property="approvalInstanceId"  column="approval_instance_id"/>
+        <result property="ccUserId"            column="cc_user_id"/>
+        <result property="ccByUserId"          column="cc_by_user_id"/>
+        <result property="readFlag"            column="read_flag"/>
+        <result property="createdAt"           column="created_at"/>
+    </resultMap>
+
+    <resultMap type="WfApprovalCcVo" id="WfApprovalCcVoResult">
+        <id     property="id"                  column="id"/>
+        <result property="approvalInstanceId"  column="approval_instance_id"/>
+        <result property="title"               column="title"/>
+        <result property="typeName"            column="type_name"/>
+        <result property="applicant"           column="applicant"/>
+        <result property="currentNodeName"     column="current_node_name"/>
+        <result property="ccTime"              column="cc_time"/>
+        <result property="businessStatus"      column="business_status"/>
+        <result property="readFlag"            column="read_flag"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="WfApprovalCc">
+        insert into wf_approval_cc
+            (id, approval_instance_id, cc_user_id, cc_by_user_id, read_flag)
+        values
+            (#{id}, #{approvalInstanceId}, #{ccUserId}, #{ccByUserId}, #{readFlag})
+    </insert>
+
+    <select id="countByInstanceAndUser" resultType="int">
+        select count(1) from wf_approval_cc
+        where approval_instance_id = #{approvalInstanceId} and cc_user_id = #{ccUserId}
+    </select>
+
+    <select id="selectListByUser" parameterType="String" resultMap="WfApprovalCcVoResult">
+        select cc.id,
+               cc.approval_instance_id,
+               i.title,
+               d.approval_name  as type_name,
+               i.applicant_name_snapshot as applicant,
+               (select t.task_name
+                  from wf_approval_task t
+                 where t.approval_instance_id = i.id
+                 order by t.created_at desc
+                 limit 1)       as current_node_name,
+               cc.created_at    as cc_time,
+               i.business_status,
+               cc.read_flag
+        from wf_approval_cc cc
+        join wf_approval_instance i on i.id = cc.approval_instance_id
+        left join wf_approval_definition d on d.id = i.approval_definition_id and d.del_flag = '0'
+        where cc.cc_user_id = #{ccUserId}
+        order by cc.created_at desc
+    </select>
+
+    <update id="markRead">
+        update wf_approval_cc
+        set read_flag = 1
+        where id = #{id} and cc_user_id = #{ccUserId}
+    </update>
+
+</mapper>

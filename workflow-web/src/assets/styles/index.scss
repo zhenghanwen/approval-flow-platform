@@ -125,6 +125,85 @@ aside {
   padding: 20px;
 }
 
+/* 审批工作流页面通用面板样式（对齐设计稿：白底卡片，无描边） */
+.wf-panel {
+  background: #fff;
+  border-radius: 4px;
+  padding: 12px 20px;
+  margin-bottom: 12px;
+}
+
+.wf-panel--table {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+
+  .wf-table-card {
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+}
+
+.wf-table-card {
+  background: #fff;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.wf-table {
+  --el-table-border-color: transparent;
+  --el-table-header-bg-color: #f8f8f9;
+  --el-table-header-text-color: #303133;
+  --el-table-row-hover-bg-color: #f5f9ff;
+  font-size: 14px;
+
+  th.el-table__cell {
+    font-weight: 600;
+    height: auto;
+    padding: 10px 0;
+  }
+
+  td.el-table__cell {
+    height: auto;
+    padding: 6px 0;
+    color: #303133;
+  }
+}
+
+/* 分页为独立白底卡片，左对齐（对齐设计稿 P1） */
+.wf-pagination {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.wf-link-btn {
+  padding: 0 4px;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.wf-link-btn + .wf-link-btn {
+  margin-left: 8px;
+}
+
+.wf-page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.wf-page-desc {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #909399;
+}
+
 .components-container {
   margin: 30px 50px;
   position: relative;

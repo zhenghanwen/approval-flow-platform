@@ -89,6 +89,84 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+  {
+    path: '/workflow',
+    component: Layout,
+    redirect: '/workflow/todo',
+    name: 'Workflow',
+    meta: { title: '审批中心', icon: 'checkbox' },
+    children: [
+      {
+        path: 'todo',
+        component: () => import('@/views/workflow/todo/index.vue'),
+        name: 'WorkflowTodo',
+        meta: { title: '待办事项', icon: 'time' }
+      },
+      {
+        path: 'done',
+        component: () => import('@/views/workflow/done/index.vue'),
+        name: 'WorkflowDone',
+        meta: { title: '已办事项', icon: 'checkbox' }
+      },
+      {
+        path: 'mine',
+        component: () => import('@/views/workflow/mine/index.vue'),
+        name: 'WorkflowMine',
+        meta: { title: '我发起的', icon: 'form' }
+      },
+      {
+        path: 'cc',
+        component: () => import('@/views/workflow/cc/index.vue'),
+        name: 'WorkflowCc',
+        meta: { title: '抄送我的', icon: 'message' }
+      },
+      {
+        path: 'form',
+        component: () => import('@/views/workflow/form/index.vue'),
+        name: 'WorkflowForm',
+        hidden: true,
+        meta: { title: '填写审批', activeMenu: '/workflow-start', noCache: true }
+      },
+      {
+        path: 'detail/:id',
+        component: () => import('@/views/workflow/detail/index.vue'),
+        name: 'WorkflowDetail',
+        hidden: true,
+        meta: { title: '审批详情', activeMenu: '/workflow/todo', noCache: true }
+      },
+      {
+        path: 'designer',
+        component: () => import('@/views/workflow/designer/index.vue'),
+        name: 'WorkflowDesigner',
+        hidden: true,
+        meta: { title: '流程设计器', activeMenu: '/workflow-type', noCache: true }
+      }
+    ]
+  },
+  {
+    path: '/workflow-start',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/workflow/start/index.vue'),
+        name: 'WorkflowStart',
+        meta: { title: '发起审批', icon: 'edit' }
+      }
+    ]
+  },
+  {
+    path: '/workflow-type',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/workflow/approval-type/index.vue'),
+        name: 'WorkflowType',
+        meta: { title: '审批类型', icon: 'list' }
+      }
+    ]
   }
 ]
 

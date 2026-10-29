@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,13 +32,16 @@ public class ApprovalDefinitionService {
     private final WfApprovalDefinitionMapper approvalDefinitionMapper;
     private final WfFormVersionMapper formVersionMapper;
     private final WfWorkflowVersionMapper workflowVersionMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     public ApprovalDefinitionService(WfApprovalDefinitionMapper approvalDefinitionMapper,
                                      WfFormVersionMapper formVersionMapper,
-                                     WfWorkflowVersionMapper workflowVersionMapper) {
+                                     WfWorkflowVersionMapper workflowVersionMapper,
+                                     JdbcTemplate jdbcTemplate) {
         this.approvalDefinitionMapper = approvalDefinitionMapper;
         this.formVersionMapper = formVersionMapper;
         this.workflowVersionMapper = workflowVersionMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /**
@@ -118,6 +122,25 @@ public class ApprovalDefinitionService {
         definition.setStatus(STATUS_DISABLED);
         approvalDefinitionMapper.update(definition);
         return requireDefinition(id);
+    }
+
+    /**
+     * 删除审批类型（软删除，P8）。
+     *
+     * <p>已产生审批单的类型为保留审批历史不可删除（提示改停用）；删除后
+     * 编码可复用，历史审批单仍可正常查看（审批单侧不引用 del_flag）。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(String id) {
+        WfApprovalDefinition definition = requireDefinition(id);
+        Integer instanceCount = jdbcTemplate.queryForObject(
+            "select count(1) from wf_approval_instance where approval_definition_id = ?",
+            Integer.class, id);
+        if (instanceCount != null && instanceCount > 0) {
+            throw new ServiceException(
+                "该审批类型已产生 " + instanceCount + " 个审批单，为保证历史数据完整不可删除，可改为停用");
+        }
+        approvalDefinitionMapper.deleteById(id);
     }
 
     public WfApprovalDefinition get(String id) {

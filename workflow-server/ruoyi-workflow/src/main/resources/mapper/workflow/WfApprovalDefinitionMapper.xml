@@ -14,6 +14,7 @@
         <result property="allowWithdraw"         column="allow_withdraw"/>
         <result property="allowCancel"           column="allow_cancel"/>
         <result property="status"                column="status"/>
+        <result property="delFlag"               column="del_flag"/>
         <result property="createdBy"             column="created_by"/>
         <result property="createdAt"             column="created_at"/>
         <result property="updatedAt"             column="updated_at"/>
@@ -22,23 +23,23 @@
     <sql id="selectWfApprovalDefinitionVo">
         select id, approval_code, approval_name, category_id, description, icon,
                current_form_version_id, current_flow_version_id, allow_withdraw, allow_cancel,
-               status, created_by, created_at, updated_at
+               status, del_flag, created_by, created_at, updated_at
         from wf_approval_definition
     </sql>
 
     <select id="selectById" parameterType="String" resultMap="WfApprovalDefinitionResult">
         <include refid="selectWfApprovalDefinitionVo"/>
-        where id = #{id}
+        where id = #{id} and del_flag = '0'
     </select>
 
     <select id="selectByCode" parameterType="String" resultMap="WfApprovalDefinitionResult">
         <include refid="selectWfApprovalDefinitionVo"/>
-        where approval_code = #{approvalCode}
+        where approval_code = #{approvalCode} and del_flag = '0'
     </select>
 
     <select id="selectPublished" resultMap="WfApprovalDefinitionResult">
         <include refid="selectWfApprovalDefinitionVo"/>
-        where status = 'PUBLISHED'
+        where status = 'PUBLISHED' and del_flag = '0'
         order by created_at desc
     </select>
 
@@ -48,6 +49,7 @@
             <if test="approvalCode != null and approvalCode != ''">and approval_code like concat('%', #{approvalCode}, '%')</if>
             <if test="approvalName != null and approvalName != ''">and approval_name like concat('%', #{approvalName}, '%')</if>
             <if test="status != null and status != ''">and status = #{status}</if>
+            and del_flag = '0'
         </where>
         order by created_at desc
     </select>
@@ -74,6 +76,12 @@
             <if test="allowCancel != null">allow_cancel = #{allowCancel},</if>
             <if test="status != null">status = #{status},</if>
         </set>
+        where id = #{id}
+    </update>
+
+    <update id="deleteById" parameterType="String">
+        update wf_approval_definition
+        set del_flag = '1'
         where id = #{id}
     </update>
 

@@ -35,13 +35,14 @@ public class WfApprovalController extends BaseController {
     }
 
     /**
-     * 请求体：{ approvalDefinitionId, formVersionId, title, formData, idempotencyKey }
+     * 请求体：{ approvalDefinitionId, formVersionId, title, formData, ccUserIds?, idempotencyKey }
      */
     public static class SubmitRequest {
         public String approvalDefinitionId;
         public String formVersionId;
         public String title;
         public Map<String, Object> formData;
+        public List<String> ccUserIds;
         public String idempotencyKey;
     }
 
@@ -63,7 +64,7 @@ public class WfApprovalController extends BaseController {
         WfApprovalInstance instance = approvalSubmissionService.submit(
             request.approvalDefinitionId, request.formVersionId, request.title, request.formData,
             String.valueOf(userId), SecurityUtils.getUsername(),
-            deptId == null ? null : String.valueOf(deptId), request.idempotencyKey);
+            deptId == null ? null : String.valueOf(deptId), request.idempotencyKey, request.ccUserIds);
         return success(instance);
     }
 

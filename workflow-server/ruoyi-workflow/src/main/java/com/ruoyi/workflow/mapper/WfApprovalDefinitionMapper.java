@@ -22,4 +22,7 @@ public interface WfApprovalDefinitionMapper {
     List<WfApprovalDefinition> selectList(WfApprovalDefinition query);
 
     List<WfApprovalDefinition> selectPublished();
+
+    /** 软删除（del_flag 置 1，保留审批历史） */
+    int deleteById(@Param("id") String id);
 }

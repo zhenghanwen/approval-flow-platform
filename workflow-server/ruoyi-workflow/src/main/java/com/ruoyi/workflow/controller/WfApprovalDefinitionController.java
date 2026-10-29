@@ -2,6 +2,7 @@ package com.ruoyi.workflow.controller;
 
 import java.util.List;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -80,5 +81,14 @@ public class WfApprovalDefinitionController extends BaseController {
     @PostMapping("/{id}/disable")
     public AjaxResult disable(@PathVariable String id) {
         return success(approvalDefinitionService.disable(id));
+    }
+
+    /**
+     * 删除审批类型（软删除，P8）。已产生审批单的类型不可删除。
+     */
+    @DeleteMapping("/{id}")
+    public AjaxResult delete(@PathVariable String id) {
+        approvalDefinitionService.delete(id);
+        return success();
     }
 }
