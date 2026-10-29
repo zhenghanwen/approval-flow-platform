@@ -495,7 +495,7 @@ class M4ApprovalFlowAcceptanceTest {
         Map<String, Object> formData = Map.of("applicant", "1", "amount", 1500);
         WfApprovalInstance instance = approvalSubmissionService.submit(
             orPercentApprovalDefinitionId, orPercentFormVersionId, "或签比例场景-1500元", formData,
-            "1", "admin", "103", "m4-orpercent-key-001");
+            "1", "admin", "103", "m4-orpercent-key-001", List.of());
 
         // 或签：3 同意（OR 任意一人达标）→ 直接进比例签
         WfApprovalTask orTask3 = pendingTaskOf(instance, "orApproval", "3");
@@ -544,7 +544,7 @@ class M4ApprovalFlowAcceptanceTest {
         Map<String, Object> formData = Map.of("applicant", "1", "amount", 6800);
         return approvalSubmissionService.submit(
             m4ApprovalDefinitionId, m4FormVersionId, title, formData,
-            "1", "admin", "103", idempotencyKey);
+            "1", "admin", "103", idempotencyKey, List.of());
     }
 
     private WfApprovalTask deptTask(WfApprovalInstance instance, String assignee) {

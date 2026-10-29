@@ -249,7 +249,7 @@ class M3ApprovalFlowAcceptanceTest {
         // 提交事务链：Mongo 先写 → MySQL 事务（审批单 + 流程启动 + 投影 + 操作记录）
         WfApprovalInstance instance = approvalSubmissionService.submit(
             approvalDefinitionId, formVersionId, "办公设备采购-6800元", formData,
-            "1", "admin", "103", "submit-key-001");
+            "1", "admin", "103", "submit-key-001", List.of());
         assertEquals("PENDING", instance.getBusinessStatus());
         assertNotNull(instance.getProcessInstanceId(), "应启动 Flowable 流程");
         assertNotNull(instance.getApprovalNo());
@@ -314,7 +314,7 @@ class M3ApprovalFlowAcceptanceTest {
             "reason", "差旅报销");
         WfApprovalInstance instance = approvalSubmissionService.submit(
             approvalDefinitionId, formVersionId, "差旅报销-1200元", formData,
-            "1", "admin", "103", "submit-key-002");
+            "1", "admin", "103", "submit-key-002", List.of());
         WfApprovalTask deptTask = approvalTaskService.todo("2").stream()
             .filter(t -> "deptApproval".equals(t.getTaskDefinitionKey()))
             .findFirst().orElseThrow(() -> new AssertionError("应存在部门审批待办"));

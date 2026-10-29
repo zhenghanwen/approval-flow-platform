@@ -611,7 +611,7 @@ class M5ReliabilitySafetyAcceptanceTest {
         Map<String, Object> formData = Map.of("applicant", "1", "amount", 6800);
         return approvalSubmissionService.submit(
             m5ApprovalDefinitionId, m5FormVersionId, title, formData,
-            "1", "admin", "103", idempotencyKey);
+            "1", "admin", "103", idempotencyKey, List.of());
     }
 
     private WfOutboxEvent eventOf(WfApprovalInstance instance, String eventType) {
