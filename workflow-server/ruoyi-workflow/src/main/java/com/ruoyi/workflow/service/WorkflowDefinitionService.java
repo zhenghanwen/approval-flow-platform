@@ -35,6 +35,9 @@ public class WorkflowDefinitionService {
     public static final String STATUS_DISABLED = "DISABLED";
     public static final String VERSION_STATUS_PUBLISHED = "PUBLISHED";
 
+    /** 草稿版本固定槽位版本号（同一流程同一时刻仅一份草稿，发布版本从 1 起递增，不与其冲突）。 */
+    private static final int DRAFT_VERSION_NO = 0;
+
     private final WfWorkflowDefinitionMapper definitionMapper;
     private final WfWorkflowVersionMapper versionMapper;
     private final BpmnValidationService validationService;
@@ -84,6 +87,43 @@ public class WorkflowDefinitionService {
     public String validate(String workflowId, String bpmnXml) {
         requireDefinition(workflowId);
         return validationService.validateAndNormalize(bpmnXml);
+    }
+
+    /**
+     * 保存流程草稿：校验 + 规一化后写入 DRAFT 版本（不部署 Flowable），
+     * 供流程设计器「保存/存为草稿」使用（审批模板三步向导第 3 步）。
+     *
+     * <p>草稿固定使用 version_no = 0 槽位（同一流程同一时刻仅一份草稿，覆盖保存）；
+     * 发布版本从 1 起递增，与草稿槽位不冲突。发布成功后草稿槽位被清除（见 {@link #publish}）。</p>
+     *
+     * @param workflowId 流程定义ID
+     * @param bpmnXml    前端提交的 BPMN XML
+     * @param configJson 节点配置和扩展元数据（可空）
+     * @param operator   操作人
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public WfWorkflowVersion saveDraft(String workflowId, String bpmnXml, String configJson, String operator) {
+        requireDefinition(workflowId);
+        String normalizedXml = validationService.validateAndNormalize(bpmnXml, configJson);
+        String storedConfig = validationService.ensureLayout(configJson, normalizedXml);
+
+        WfWorkflowVersion draft = versionMapper.selectByWorkflowAndVersion(workflowId, DRAFT_VERSION_NO);
+        if (draft == null) {
+            draft = new WfWorkflowVersion();
+            draft.setId(UUID.randomUUID().toString());
+            draft.setWorkflowId(workflowId);
+            draft.setVersionNo(DRAFT_VERSION_NO);
+            draft.setBpmnHash(hashXml(normalizedXml));
+            draft.setConfigJson(storedConfig);
+            draft.setStatus(STATUS_DRAFT);
+            draft.setCreatedAt(new Date());
+            versionMapper.insert(draft);
+        } else {
+            draft.setBpmnHash(hashXml(normalizedXml));
+            draft.setConfigJson(storedConfig);
+            versionMapper.update(draft);
+        }
+        return draft;
     }
 
     /**
@@ -138,6 +178,9 @@ public class WorkflowDefinitionService {
         definition.setStatus(STATUS_PUBLISHED);
         definition.setCurrentVersion(versionNo);
         definitionMapper.update(definition);
+
+        // 5. 发布成功后清除草稿槽位（草稿已被本次发布内容取代）
+        versionMapper.deleteByWorkflowAndVersion(workflowId, DRAFT_VERSION_NO);
         return version;
     }
 

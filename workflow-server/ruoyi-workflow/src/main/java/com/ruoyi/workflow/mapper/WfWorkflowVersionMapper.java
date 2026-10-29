@@ -23,6 +23,12 @@ public interface WfWorkflowVersionMapper {
                                                  @Param("versionNo") Integer versionNo);
 
     /**
+     * 删除某流程定义下指定版本号（用于发布后清除草稿槽位）。
+     */
+    int deleteByWorkflowAndVersion(@Param("workflowId") String workflowId,
+                                   @Param("versionNo") Integer versionNo);
+
+    /**
      * 取某流程定义下已发布的最大版本号（无则 null）。
      */
     Integer selectMaxPublishedVersion(@Param("workflowId") String workflowId);

@@ -63,6 +63,16 @@ public class WfWorkflowController extends BaseController {
     }
 
     /**
+     * 保存流程草稿（校验 + 规一化，不部署 Flowable）。
+     */
+    @PostMapping("/{workflowId}/draft")
+    public AjaxResult draft(@PathVariable String workflowId, @RequestBody WorkflowRequest request) {
+        WfWorkflowVersion version = workflowDefinitionService.saveDraft(
+            workflowId, request.bpmnXml, request.configJson, SecurityUtils.getUsername());
+        return success(version);
+    }
+
+    /**
      * 发布流程版本（校验 + 规一化 → 部署 Flowable → 版本快照不可变）。
      */
     @PostMapping("/{workflowId}/publish")

@@ -44,6 +44,15 @@ export function publishWorkflow(id: string, payload: { bpmnXml: string; configJs
   })
 }
 
+/** 保存流程草稿（校验 + 规一化，写入 DRAFT 版本不部署 Flowable；同一流程仅一份草稿，覆盖保存） */
+export function saveWorkflowDraft(id: string, payload: { bpmnXml: string; configJson?: string; workflowCode?: string; workflowName?: string }) {
+  return request({
+    url: '/workflow/workflows/' + id + '/draft',
+    method: 'post',
+    data: payload
+  })
+}
+
 /** 新建流程定义（approvalDefinitionId 可选：流程管理侧新建流程不再绑定审批类型） */
 export function addWorkflow(payload: {
   approvalDefinitionId?: string

@@ -59,6 +59,7 @@
             <if test="flowableDeploymentId != null">flowable_deployment_id = #{flowableDeploymentId},</if>
             <if test="processDefinitionId != null">process_definition_id = #{processDefinitionId},</if>
             <if test="processDefinitionKey != null">process_definition_key = #{processDefinitionKey},</if>
+            <if test="bpmnHash != null">bpmn_hash = #{bpmnHash},</if>
             <if test="configJson != null">config_json = #{configJson},</if>
             <if test="status != null">status = #{status},</if>
             <if test="publishedAt != null">published_at = #{publishedAt},</if>
@@ -66,5 +67,10 @@
         </set>
         where id = #{id}
     </update>
+
+    <delete id="deleteByWorkflowAndVersion">
+        delete from wf_workflow_version
+        where workflow_id = #{workflowId} and version_no = #{versionNo}
+    </delete>
 
 </mapper>

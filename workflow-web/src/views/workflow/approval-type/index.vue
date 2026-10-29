@@ -1,8 +1,8 @@
 <template>
   <div class="app-container">
     <div class="wf-type__header">
-      <h2 class="wf-type__title">审批类型配置</h2>
-      <el-button type="primary" icon="Plus" @click="openCreate">新建审批类型</el-button>
+      <h2 class="wf-type__title">审批模板</h2>
+      <el-button type="primary" icon="Plus" @click="goCreate">新建审批模板</el-button>
     </div>
 
     <div class="wf-table-card">
@@ -16,9 +16,14 @@
         </el-table-column>
         <el-table-column label="绑定流程" min-width="230">
           <template #default="{ row }">
-            <span class="wf-binding wf-binding--link" @click="openDesigner(row)">
-              {{ flowLabel(row.currentFlowVersionId) }}
+            <span
+              v-if="row.currentFlowVersionId || templateWorkflow.has(row.id)"
+              class="wf-binding wf-binding--link"
+              @click="openDesigner(row)"
+            >
+              {{ row.currentFlowVersionId ? flowLabel(row.currentFlowVersionId) : '未绑定 · 点击设计流程' }}
             </span>
+            <span v-else class="wf-binding">{{ flowLabel(row.currentFlowVersionId) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" min-width="100">
@@ -36,7 +41,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无审批类型" :image-size="90" />
+          <el-empty description="暂无审批模板，点击右上角「新建审批模板」创建" :image-size="90" />
         </template>
       </el-table>
     </div>
@@ -44,7 +49,7 @@
     <!-- 新建 / 编辑 -->
     <el-dialog
       v-model="dialog.visible"
-      :title="dialog.isEdit ? '编辑审批类型' : '新建审批类型'"
+      :title="dialog.isEdit ? '编辑审批模板' : '新建审批模板'"
       width="520px"
       append-to-body
       @closed="resetDialog"
@@ -143,6 +148,8 @@ const formRef = ref()
 const formVersionLabels = ref(new Map<string, string>())
 const flowVersionLabels = ref(new Map<string, string>())
 const flowVersionWorkflow = ref(new Map<string, { id: string; name: string }>())
+/** 模板ID → 关联流程（用于未绑定版本时从列表进入流程设计器继续设计） */
+const templateWorkflow = ref(new Map<string, { id: string; name: string }>())
 /** 弹窗可选：仅已发布版本（后端发布校验要求 PUBLISHED） */
 const formVersionOptions = ref<Array<{ label: string; value: string }>>([])
 const flowVersionOptions = ref<Array<{ label: string; value: string }>>([])
@@ -201,6 +208,7 @@ async function loadBindingLabels() {
   formVersionLabels.value = new Map()
   flowVersionLabels.value = new Map()
   flowVersionWorkflow.value = new Map()
+  templateWorkflow.value = new Map()
   formVersionOptions.value = []
   flowVersionOptions.value = []
   try {
@@ -232,6 +240,12 @@ async function loadBindingLabels() {
     const workflows = workflowRes.data || []
     await Promise.all(
       workflows.map(async workflow => {
+        if (workflow.approvalDefinitionId) {
+          templateWorkflow.value.set(workflow.approvalDefinitionId, {
+            id: workflow.id,
+            name: workflow.workflowName || workflow.workflowCode || workflow.id
+          })
+        }
         try {
           const versionRes = await listWorkflowVersion(workflow.id)
           ;(versionRes.data || []).forEach(version => {
@@ -256,14 +270,14 @@ async function loadBindingLabels() {
   }
 }
 
-function openCreate() {
-  dialog.isEdit = false
-  dialog.visible = true
+/** 新建审批模板 → 进入三步向导（基本信息→表单设计→流程设计） */
+function goCreate() {
+  router.push('/workflow-type/wizard')
 }
 
 function openEdit(row: WfApprovalDefinition) {
   if (row.status !== 'DRAFT') {
-    proxy.$modal.msgWarning('仅草稿状态的审批类型可编辑配置')
+    proxy.$modal.msgWarning('仅草稿状态的审批模板可编辑配置')
     return
   }
   dialog.isEdit = true
@@ -331,7 +345,7 @@ async function handleSave() {
 
 async function handlePublish(row: WfApprovalDefinition) {
   try {
-    await proxy.$modal.confirm(`确认发布审批类型「${row.approvalName || row.approvalCode}」？`)
+    await proxy.$modal.confirm(`确认发布审批模板「${row.approvalName || row.approvalCode}」？`)
   } catch {
     return
   }
@@ -351,7 +365,7 @@ async function handlePublish(row: WfApprovalDefinition) {
 async function handleDelete(row: WfApprovalDefinition) {
   try {
     await proxy.$modal.confirm(
-      `确认删除审批类型「${row.approvalName || row.approvalCode}」？删除后不可恢复，已产生的审批单不受影响。`
+      `确认删除审批模板「${row.approvalName || row.approvalCode}」？删除后不可恢复，已产生的审批单不受影响。`
     )
   } catch {
     return
@@ -364,7 +378,7 @@ async function handleDelete(row: WfApprovalDefinition) {
     // 已有审批单 → 引导停用（保留历史数据）
     if (msg.includes('不可删除')) {
       try {
-        await proxy.$modal.confirm('该审批类型已产生审批单，为保证历史数据完整不可删除。是否改为停用？')
+        await proxy.$modal.confirm('该审批模板已产生审批单，为保证历史数据完整不可删除。是否改为停用？')
       } catch {
         return
       }

@@ -1,14 +1,15 @@
 <template>
-  <div class="wf-designer">
+  <div class="wf-designer" :class="{ 'is-embedded': embedded }">
     <!-- 顶部工具栏 -->
     <header class="wf-designer__header">
-      <div class="wf-designer__title" @click="goBack">
-        <el-icon><Back /></el-icon>
+      <div class="wf-designer__title" :class="{ 'is-static': embedded }" @click="goBack">
+        <el-icon v-if="!embedded"><Back /></el-icon>
         <span>{{ pageTitle }}</span>
       </div>
       <div class="wf-designer__actions">
         <el-button type="primary" icon="Check" :loading="validating" @click="handleValidate">校验</el-button>
-        <el-button type="success" icon="Promotion" :loading="publishing" @click="handlePublish">发布</el-button>
+        <el-button :loading="savingDraft" @click="handleSaveDraft">存草稿</el-button>
+        <el-button type="success" icon="Promotion" :loading="publishing" @click="handlePublish">直接发布</el-button>
         <span class="wf-designer__divider"></span>
         <el-button text :disabled="!canUndo" @click="undo">
           <el-icon><RefreshLeft /></el-icon>
@@ -193,8 +194,8 @@
 </template>
 
 <script setup lang="ts" name="WorkflowDesigner">
-import { addWorkflow, getWorkflow, listWorkflowVersion, publishWorkflow, validateWorkflow, listWorkflow } from '@/api/workflow/workflow'
-import type { WfWorkflowDefinition } from '@/types'
+import { addWorkflow, getWorkflow, listWorkflowVersion, publishWorkflow, saveWorkflowDraft, validateWorkflow, listWorkflow } from '@/api/workflow/workflow'
+import type { WfWorkflowDefinition, WfWorkflowVersion } from '@/types'
 
 type NodeType = 'start' | 'end' | 'approval' | 'exclusive' | 'parallel'
 
@@ -222,6 +223,19 @@ interface DesignerEdge {
 const STAGE_WIDTH = 1000
 const STAGE_HEIGHT = 700
 
+const props = defineProps<{
+  /** 内嵌模式（审批模板三步向导第 3 步）：隐藏返回入口、高度自适应，发布/存草稿后 emit */
+  embedded?: boolean
+  workflowId?: string
+  definitionId?: string
+  name?: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'published', payload: { workflowId: string; versionId: string; versionNo: number }): void
+  (e: 'saved', payload: { workflowId: string }): void
+}>()
+
 const route = useRoute()
 const router = useRouter()
 const { proxy } = getCurrentInstance() as any
@@ -229,13 +243,14 @@ const { proxy } = getCurrentInstance() as any
 const loading = ref(false)
 const validating = ref(false)
 const publishing = ref(false)
+const savingDraft = ref(false)
 const scale = ref(1)
 const canvasRef = ref<HTMLElement>()
 const propsKey = ref(0)
 
-const workflowId = ref(String(route.query.workflowId || ''))
-const definitionId = ref(String(route.query.definitionId || ''))
-const workflowName = ref(String(route.query.name || '审批流程'))
+const workflowId = ref(props.workflowId || String(route.query.workflowId || ''))
+const definitionId = ref(props.definitionId || String(route.query.definitionId || ''))
+const workflowName = ref(props.name || String(route.query.name || '审批流程'))
 const workflowCode = ref('')
 
 const nodes = ref<DesignerNode[]>([])
@@ -519,11 +534,15 @@ async function loadGraph() {
       }
       try {
         const versionRes = await listWorkflowVersion(workflowId.value)
-        const versions = (versionRes.data || [])
+        const versions = (versionRes.data || []) as WfWorkflowVersion[]
+        // 草稿优先：v0 DRAFT 槽位是未发布的最新编辑内容；无草稿时取最新已发布版本
+        const draft = versions.find(item => item.status === 'DRAFT' && (item.versionNo || 0) === 0)
+        const latestPublished = versions
           .filter(item => item.status === 'PUBLISHED')
-          .sort((a, b) => (b.versionNo || 0) - (a.versionNo || 0))
-        if (versions[0]?.configJson) {
-          applyConfig(versions[0].configJson)
+          .sort((a, b) => (b.versionNo || 0) - (a.versionNo || 0))[0]
+        const target = draft || latestPublished
+        if (target?.configJson) {
+          applyConfig(target.configJson)
         }
       } catch {
         /* 忽略 */
@@ -745,6 +764,7 @@ function fitView() {
 }
 
 function goBack() {
+  if (props.embedded) return
   router.back()
 }
 
@@ -895,6 +915,26 @@ async function handleValidate() {
   }
 }
 
+/** 保存流程草稿（校验 + 规一化，不部署 Flowable，写入 v0 DRAFT 槽位） */
+async function handleSaveDraft() {
+  if (!(await ensureWorkflow())) return
+  savingDraft.value = true
+  try {
+    await saveWorkflowDraft(workflowId.value, {
+      bpmnXml: buildBpmnXml(),
+      configJson: buildConfigJson(),
+      workflowCode: workflowCode.value,
+      workflowName: workflowName.value
+    })
+    proxy.$modal.msgSuccess('草稿已保存')
+    emit('saved', { workflowId: workflowId.value })
+  } catch {
+    /* 响应拦截器已提示 */
+  } finally {
+    savingDraft.value = false
+  }
+}
+
 async function handlePublish() {
   if (!(await ensureWorkflow())) return
   publishing.value = true
@@ -907,6 +947,13 @@ async function handlePublish() {
     })
     const version: any = (res as any)?.data
     proxy.$modal.msgSuccess(version?.versionNo ? `发布成功，版本 v${version.versionNo}` : '发布成功')
+    if (version?.id) {
+      emit('published', {
+        workflowId: workflowId.value,
+        versionId: version.id,
+        versionNo: version.versionNo || 0
+      })
+    }
   } finally {
     publishing.value = false
   }
@@ -938,6 +985,11 @@ onUnmounted(() => {
   height: calc(100vh - 84px);
   min-height: 560px;
   background: #f5f6f8;
+
+  &.is-embedded {
+    height: 100%;
+    min-height: 480px;
+  }
 }
 
 .wf-designer__header {
@@ -959,6 +1011,10 @@ onUnmounted(() => {
   font-weight: 600;
   color: #303133;
   cursor: pointer;
+
+  &.is-static {
+    cursor: default;
+  }
 }
 
 .wf-designer__actions {

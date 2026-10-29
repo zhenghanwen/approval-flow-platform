@@ -159,6 +159,7 @@ export const constantRoutes = [
   {
     path: '/workflow-forms',
     component: Layout,
+    hidden: true,
     children: [
       {
         path: '',
@@ -171,6 +172,7 @@ export const constantRoutes = [
   {
     path: '/workflow-flows',
     component: Layout,
+    hidden: true,
     children: [
       {
         path: '',
@@ -188,7 +190,14 @@ export const constantRoutes = [
         path: '',
         component: () => import('@/views/workflow/approval-type/index.vue'),
         name: 'WorkflowType',
-        meta: { title: '审批类型', icon: 'list' }
+        meta: { title: '审批模板', icon: 'list' }
+      },
+      {
+        path: 'wizard',
+        component: () => import('@/views/workflow/approval-template/wizard.vue'),
+        name: 'WorkflowTemplateWizard',
+        hidden: true,
+        meta: { title: '新建审批模板', activeMenu: '/workflow-type', noCache: true }
       }
     ]
   }
